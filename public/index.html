@@ -641,6 +641,9 @@
       to { opacity: 1; transform: translateY(0); }
     }
     .message-card.user-msg { border-left: 3px solid var(--orange); }
+    .message-card.debate-pro { border-left: 3px solid var(--green); }
+    .message-card.debate-con { border-left: 3px solid var(--red); }
+    .message-card.hearing-hotseat { border-left: 3px solid var(--orange); }
     .msg-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px 0; }
     .msg-avatar {
       width: 42px; height: 42px;
@@ -697,6 +700,14 @@
       background: rgba(0, 229, 204, 0.1); color: var(--cyan); border: 1px solid rgba(0, 229, 204, 0.25);
     }
     .msg-timestamp { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+    .side-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 100px;
+      font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+      text-transform: uppercase; margin-left: 8px; letter-spacing: 0.5px;
+    }
+    .side-pro { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+    .side-con { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+    .side-hotseat { background: rgba(255,140,66,0.15); color: var(--orange); border: 1px solid rgba(255,140,66,0.3); }
 
     .msg-beliefs { padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 6px; }
     .belief-tag {
@@ -715,6 +726,21 @@
     .msg-body p { margin-bottom: 10px; }
     .msg-body p:last-child { margin-bottom: 0; }
     .msg-body strong, .msg-body b { font-weight: 600; color: var(--cyan); }
+    .msg-body em, .msg-body i { font-style: italic; color: var(--text-secondary); }
+    .msg-body ul, .msg-body ol { padding-left: 24px; margin-bottom: 10px; }
+    .msg-body li { margin-bottom: 4px; }
+    .msg-body code {
+      font-family: var(--font-mono); font-size: 12px;
+      background: var(--bg-primary); border: 1px solid var(--border); border-radius: 3px;
+      padding: 1px 5px; color: var(--orange);
+    }
+    .msg-body pre {
+      background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 12px 16px; margin-bottom: 10px; overflow-x: auto;
+    }
+    .msg-body pre code {
+      background: none; border: none; padding: 0; font-size: 12px; color: var(--text-primary);
+    }
 
     .msg-footer { padding: 0 20px 12px; display: flex; align-items: center; gap: 6px; }
     .msg-footer .domain-tag {
@@ -911,15 +937,38 @@
     .agent-identity-bar .agent-tier { font-size: 10px; color: var(--orange); text-transform: uppercase; font-weight: 600; font-family: var(--font-mono); padding: 2px 6px; background: rgba(255,140,66,0.1); border-radius: 4px; }
 
     /* ===== RESPONSIVE ===== */
+    .mobile-sidebar-toggle {
+      display: none;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text-primary); padding: 6px 12px; cursor: pointer; font-size: 18px;
+    }
     @media (max-width: 860px) {
       .page-container { grid-template-columns: 1fr; }
       .sidebar { display: none; }
+      .sidebar.sidebar-open {
+        display: flex; position: fixed; top: 60px; right: 0; bottom: 0; width: 300px;
+        z-index: 200; background: var(--bg-primary); padding: 16px;
+        border-left: 1px solid var(--border); overflow-y: auto;
+        animation: fadeSlideIn 0.15s ease;
+      }
+      .mobile-sidebar-toggle { display: inline-flex; }
+      .disc-header { flex-direction: column; align-items: flex-start !important; }
+      .disc-participants { flex-wrap: wrap; }
+      .avatar-popover { left: auto; right: 0; width: 260px; }
     }
     @media (max-width: 560px) {
       .header-search { display: none; }
-      .disc-view-container { padding: 12px; }
-      .msg-header { padding: 12px 14px 0; }
-      .msg-body { padding: 8px 14px 14px; }
+      .disc-view-container { padding: 8px; }
+      .msg-header { padding: 10px 12px 0; gap: 8px; }
+      .msg-body { padding: 6px 12px 12px; font-size: 13.5px; }
+      .msg-actions { padding: 2px 12px 8px; }
+      .msg-avatar { width: 34px; height: 34px; font-size: 18px; }
+      .message-card { margin-bottom: 8px; }
+      .feed-header { flex-wrap: wrap; gap: 6px; }
+      .modal-content { width: 95vw; max-height: 85vh; overflow-y: auto; }
+      .avatar-popover { width: 240px; }
+      .page-container { padding: 10px; }
+      .header-inner { padding: 0 10px; }
     }
 
     .hidden { display: none !important; }
@@ -943,6 +992,7 @@
         </div>
         <button id="translate-toggle" class="translate-toggle" onclick="toggleTranslate()">🌐 CN</button>
         <button class="btn-new" onclick="openNewModal()">＋ New</button>
+        <button class="mobile-sidebar-toggle" onclick="toggleMobileSidebar()">☰</button>
       </div>
     </div>
   </header>
@@ -1238,6 +1288,10 @@
     }
     function closeNewModal() {
       document.getElementById('new-modal').classList.add('hidden');
+    }
+    function toggleMobileSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      if (sidebar) sidebar.classList.toggle('sidebar-open');
     }
 
     // ===== WALLET =====
@@ -1669,7 +1723,17 @@
       const msgId = msg.id || ('msg-' + msg.timestamp);
       const formatted = formatContent(msg.content);
 
-      // beliefs and tags are now shown via avatar popover, not inline
+      // Format-specific badges (debate pro/con, hearing hot seat)
+      let formatBadge = '';
+      const curDisc = allDiscussions.find(d => d.id === currentDiscussionId);
+      if (curDisc && curDisc.formatMeta) {
+        if (curDisc.format === 'debate') {
+          if (curDisc.formatMeta.proSide?.includes(msg.agentId)) formatBadge = '<span class="side-badge side-pro">PRO</span>';
+          else if (curDisc.formatMeta.conSide?.includes(msg.agentId)) formatBadge = '<span class="side-badge side-con">CON</span>';
+        } else if (curDisc.format === 'hearing' && curDisc.formatMeta.hotSeatNpc === msg.agentId) {
+          formatBadge = '<span class="side-badge side-hotseat">HOT SEAT</span>';
+        }
+      }
 
       let quotesHtml = '';
       if (msg.quotes && msg.quotes.length > 0) {
@@ -1691,7 +1755,14 @@
       </div>`;
 
       const div = document.createElement('div');
-      div.className = `message-card${isUser ? ' user-msg' : ''}`;
+      let sideClass = '';
+      if (curDisc?.format === 'debate' && curDisc.formatMeta) {
+        if (curDisc.formatMeta.proSide?.includes(msg.agentId)) sideClass = ' debate-pro';
+        else if (curDisc.formatMeta.conSide?.includes(msg.agentId)) sideClass = ' debate-con';
+      } else if (curDisc?.format === 'hearing' && curDisc.formatMeta?.hotSeatNpc === msg.agentId) {
+        sideClass = ' hearing-hotseat';
+      }
+      div.className = `message-card${isUser ? ' user-msg' : ''}${sideClass}`;
       div.id = `msg-${msgId}`;
       div.dataset.msgid = msgId;
       if (!animate) div.style.animation = 'none';
@@ -1700,7 +1771,7 @@
         <div class="msg-header">
           <div class="msg-avatar" style="border-color:${color}" onclick="toggleAvatarPopover(event,'${msg.agentId}')">${avatar}</div>
           <div class="msg-agent-info">
-            <div class="msg-agent-name">${escapeHtml(msg.agentName)}${!npc && userAgent && msg.agentName === userAgent.persona.name ? '<span class="verified-badge">verified</span>' : ''}</div>
+            <div class="msg-agent-name">${escapeHtml(msg.agentName)}${formatBadge}${!npc && userAgent && msg.agentName === userAgent.persona.name ? '<span class="verified-badge">verified</span>' : ''}</div>
             <div class="msg-agent-meta">
               ${npc ? `<span class="npc-type ${npc.type}">${npc.type}</span>` : '<span class="npc-type" style="background:rgba(255,140,66,0.15);color:var(--orange);border:1px solid rgba(255,140,66,0.3)">user</span>'}
             </div>
@@ -1720,22 +1791,80 @@
       const lines = text.split('\n');
       const result = [];
       let currentParagraph = [];
+      let inList = null; // 'ul' or 'ol'
+      let inCodeBlock = false;
+      let codeLines = [];
+
+      function flushParagraph() {
+        if (currentParagraph.length) {
+          result.push('<p>' + formatInline(currentParagraph.join(' ')) + '</p>');
+          currentParagraph = [];
+        }
+      }
+      function flushList() {
+        if (inList) { result.push(`</${inList}>`); inList = null; }
+      }
+
       for (const line of lines) {
+        // Code block fence
+        if (line.trim().startsWith('```')) {
+          if (inCodeBlock) {
+            result.push('<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>');
+            codeLines = []; inCodeBlock = false;
+          } else {
+            flushParagraph(); flushList(); inCodeBlock = true;
+          }
+          continue;
+        }
+        if (inCodeBlock) { codeLines.push(line); continue; }
+
+        // Quote block
         const quoteMatch = line.match(/^>\s*@([^:]+):\s*["\u201c]([^"\u201d]*)["\u201d]?/);
         if (quoteMatch) {
-          if (currentParagraph.length) { result.push('<p>' + formatInline(currentParagraph.join(' ')) + '</p>'); currentParagraph = []; }
+          flushParagraph(); flushList();
           result.push(`<div class="msg-quote-block"><div class="quote-author">@${escapeHtml(quoteMatch[1])}</div><div class="quote-text">"${escapeHtml(quoteMatch[2])}"</div></div>`);
-        } else if (line.trim() === '') {
-          if (currentParagraph.length) { result.push('<p>' + formatInline(currentParagraph.join(' ')) + '</p>'); currentParagraph = []; }
-        } else { currentParagraph.push(line); }
+          continue;
+        }
+
+        // Bullet list
+        const bulletMatch = line.match(/^[\s]*[-*]\s+(.*)/);
+        if (bulletMatch) {
+          flushParagraph();
+          if (inList !== 'ul') { flushList(); result.push('<ul>'); inList = 'ul'; }
+          result.push('<li>' + formatInline(bulletMatch[1]) + '</li>');
+          continue;
+        }
+
+        // Numbered list
+        const numMatch = line.match(/^[\s]*(\d+)[.)]\s+(.*)/);
+        if (numMatch) {
+          flushParagraph();
+          if (inList !== 'ol') { flushList(); result.push('<ol>'); inList = 'ol'; }
+          result.push('<li>' + formatInline(numMatch[2]) + '</li>');
+          continue;
+        }
+
+        // End list if non-list line
+        flushList();
+
+        // Empty line = paragraph break
+        if (line.trim() === '') { flushParagraph(); continue; }
+
+        currentParagraph.push(line);
       }
-      if (currentParagraph.length) result.push('<p>' + formatInline(currentParagraph.join(' ')) + '</p>');
+      if (inCodeBlock) result.push('<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>');
+      flushParagraph();
+      flushList();
       return result.join('');
     }
     function formatInline(text) {
       let html = escapeHtml(text);
+      html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
       html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
       return html;
     }
     function escapeAttr(str) { return str.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }

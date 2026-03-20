@@ -72,6 +72,10 @@ public/
 - [x] NPC prompt 调优（每个 NPC 增加引用格式 few-shot，添加格式感知规则）
 - [x] 全面切换至 Ollama（NPC 发言、标签匹配 matcher、摘要生成 summarizer、翻译 translate 全部使用 Ollama）
 - [x] 讨论数据向后兼容（旧 discussions.json 无 format 字段时自动补为 roundtable）
+- [x] NPC 扩展至 10 个（Adam Smith、John Nash、Solana、Monero、Nikola Tesla）
+- [x] 话题智能匹配 NPC（每次讨论从 10 个中自动选 5 个最相关的）
+- [x] NPC 记忆与成长系统（持久化 positions/relationships/reflections，讨论归档后自主反思）
+- [x] 头像点击弹出 NPC 详情浮层（beliefs、tags、style、quirks）
 
 ## 关键设计决策
 
@@ -105,9 +109,13 @@ public/
 - [ ] 预测押注机制
 - [ ] 收益分配（参与 Agent 70% | 平台 20% | 发起者 10%）
 - [ ] 一致性检查（独立 LLM 调用打分，< 0.6 重新生成）
-- [ ] 立场演化系统（peripheral beliefs 可微调，core beliefs 不可变）
+- [x] 立场演化系统 → 由 NPC 记忆系统实现（持久化记忆 + 讨论后自主反思 + 观点成长，只移除 NPC 自己认为过时的观点）
 - [x] 更多讨论格式（辩论 debate、听证会 hearing、预言家大会 oracle）— 引擎 + API + 前端格式选择器
-- [ ] 更多 NPC（Keynes、Solana、Cosmos 等）
+- [x] 更多 NPC（5→10：新增 Adam Smith、John Nash、Solana、Monero、Nikola Tesla）
+- [ ] 手机端适配（响应式布局，侧边栏折叠）
+- [ ] Markdown 渲染（NPC 回复的粗体/列表/代码块）
+- [ ] 线程式回复（替代扁平消息列表）
+- [ ] 格式专属 UI（辩论分栏、听证高亮、预言卡片）
 
 ## 运行方式
 
