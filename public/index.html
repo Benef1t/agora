@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web3 Agora</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0a0b0f;
+      --bg-secondary: #12131a;
+      --bg-card: #181922;
+      --bg-card-hover: #1e1f2a;
+      --bg-input: #0e0f15;
+      --border: #2a2b3a;
+      --border-light: #363748;
+      --text-primary: #e8e8ec;
+      --text-secondary: #9a9ab0;
+      --text-muted: #5c5c72;
+      --cyan: #00e5cc;
+      --cyan-dim: #00b8a3;
+      --cyan-glow: rgba(0, 229, 204, 0.15);
+      --orange: #ff8c42;
+      --orange-dim: #cc6f35;
+      --purple: #8b5cf6;
+      --red: #ef4444;
+      --green: #22c55e;
+      --font-mono: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
+      --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
+      --shadow-glow: 0 0 20px rgba(0, 229, 204, 0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 11, 15, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text-primary);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .logo-icon {
+      font-size: 24px;
+    }
+    .logo span { color: var(--cyan); }
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-btn {
+      padding: 7px 16px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: var(--cyan-glow);
+    }
+    .nav-btn.primary {
+      background: var(--cyan);
+      color: var(--bg-primary);
+      border-color: var(--cyan);
+      font-weight: 600;
+    }
+    .nav-btn.primary:hover {
+      background: var(--cyan-dim);
+      border-color: var(--cyan-dim);
+    }
+
+    /* ===== MAIN LAYOUT ===== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* ===== HOME VIEW ===== */
+    .hero {
+      text-align: center;
+      padding: 60px 0 40px;
+    }
+    .hero h1 {
+      font-family: var(--font-mono);
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .hero h1 .accent { color: var(--cyan); }
+    .hero h1 .accent2 { color: var(--orange); }
+    .hero p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    .hero .subtitle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 6px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .hero .subtitle .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ===== NPC ROSTER ===== */
+    .section-title {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 16px;
+    }
+
+    .npc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 14px;
+      margin-bottom: 40px;
+    }
+    .npc-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .npc-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--purple));
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .npc-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-light);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-glow);
+    }
+    .npc-card:hover::before { opacity: 1; }
+    .npc-card .npc-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+    }
+    .npc-card .npc-name {
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 2px;
+    }
+    .npc-card .npc-english {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .npc-card .npc-type {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .npc-type.historical {
+      background: rgba(139, 92, 246, 0.15);
+      color: var(--purple);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    .npc-type.chain {
+      background: rgba(0, 229, 204, 0.1);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 229, 204, 0.25);
+    }
+    .npc-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 10px;
+    }
+    .npc-tags .tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      background: var(--bg-primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ===== CREATE DISCUSSION ===== */
+    .create-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      margin-bottom: 32px;
+      box-shadow: var(--shadow-md);
+    }
+    .create-panel h3 {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .create-panel h3 .icon { color: var(--cyan); }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .form-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px var(--cyan-glow);
+    }
+    .form-input::placeholder { color: var(--text-muted); }
+    textarea.form-input {
+      height: 80px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .btn {
+      padding: 10px 24px;
+      border-radius: var(--radius-md);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--cyan);
+      color: var(--bg-primary);
+    }
+    .btn-primary:hover { background: var(--cyan-dim); }
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--border-light);
+      color: var(--text-primary);
+    }
+    .btn-danger {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-danger:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    /* ===== DISCUSSION LIST ===== */
+    .discussion-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .disc-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 22px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .disc-item:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-light);
+    }
+    .disc-item .disc-avatars {
+      display: flex;
+      flex-shrink: 0;
+    }
+    .disc-item .disc-avatars .mini-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-primary);
+      border: 2px solid var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      margin-left: -8px;
+    }
+    .disc-item .disc-avatars .mini-avatar:first-child { margin-left: 0; }
+    .disc-item .disc-info { flex: 1; min-width: 0; }
+    .disc-item .disc-topic {
+      font-weight: 600;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .disc-item .disc-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 3px;
+    }
+    .disc-item .disc-status {
+      flex-shrink: 0;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-npc_round {
+      background: rgba(255, 140, 66, 0.15);
+      color: var(--orange);
+      border: 1px solid rgba(255, 140, 66, 0.3);
+    }
+    .status-open {
+      background: rgba(34, 197, 94, 0.12);
+      color: var(--green);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .status-archived {
+      background: rgba(92, 92, 114, 0.15);
+      color: var(--text-muted);
+      border: 1px solid rgba(92, 92, 114, 0.3);
+    }
+    .status-pending {
+      background: rgba(139, 92, 246, 0.12);
+      color: var(--purple);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+
+    /* ===== DISCUSSION VIEW ===== */
+    .disc-header {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .disc-header::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--orange), var(--purple));
+    }
+    .disc-header .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-bottom: 14px;
+      background: none;
+      border: none;
+      transition: color 0.2s;
+    }
+    .disc-header .back-btn:hover { color: var(--cyan); }
+    .disc-header h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+    .disc-header .disc-desc {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 14px;
+    }
+    .disc-header-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .disc-header-meta .meta-item {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .disc-participants {
+      display: flex;
+      gap: 6px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .disc-participants .participant-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .disc-participants .participant-chip .p-avatar {
+      font-size: 14px;
+    }
+
+    /* ===== MESSAGES ===== */
+    .messages-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .message-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      animation: msg-enter 0.4s ease-out;
+    }
+    @keyframes msg-enter {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message-card.user-msg {
+      border-left: 3px solid var(--orange);
+    }
+
+    .msg-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px 0;
+    }
+    .msg-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .msg-agent-info { flex: 1; }
+    .msg-agent-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .msg-agent-name .name-en {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-left: 6px;
+    }
+    .msg-agent-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .msg-agent-meta .npc-type { font-size: 9px; }
+    .msg-timestamp {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .msg-beliefs {
+      padding: 10px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .belief-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+    .belief-tag .conviction {
+      width: 32px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .belief-tag .conviction-fill {
+      height: 100%;
+      border-radius: 2px;
+    }
+    .conviction-high { background: var(--cyan); }
+    .conviction-mid { background: var(--orange); }
+    .conviction-low { background: var(--text-muted); }
+
+    .msg-body {
+      padding: 12px 20px 18px;
+      font-size: 14.5px;
+      line-height: 1.8;
+      color: var(--text-primary);
+    }
+    .msg-body p {
+      margin-bottom: 12px;
+    }
+    .msg-body p:last-child { margin-bottom: 0; }
+    .msg-body strong, .msg-body b {
+      font-weight: 600;
+      color: var(--cyan);
+    }
+
+    .msg-footer {
+      padding: 0 20px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .msg-footer .domain-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      background: var(--bg-primary);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .msg-reply-to {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--purple);
+      padding: 0 20px 8px;
+    }
+
+    /* Quote blocks inside messages */
+    .msg-quote-block {
+      border-left: 3px solid var(--purple);
+      background: rgba(139, 92, 246, 0.08);
+      padding: 8px 12px;
+      margin: 0 0 10px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .msg-quote-block .quote-author {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--purple);
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .msg-quote-block .quote-text {
+      font-style: italic;
+    }
+
+    /* Reply/action buttons on messages */
+    .msg-actions {
+      padding: 4px 20px 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .msg-action-btn {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      background: none;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 3px 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .msg-action-btn:hover {
+      color: var(--cyan);
+      border-color: var(--border);
+      background: var(--bg-primary);
+    }
+    .msg-action-btn.translate-btn:hover { color: var(--orange); }
+
+    /* Reply context bar above user input */
+    .reply-context {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      background: rgba(139, 92, 246, 0.08);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+    }
+    .reply-context .reply-label {
+      font-family: var(--font-mono);
+      color: var(--purple);
+      font-weight: 600;
+    }
+    .reply-context .reply-excerpt {
+      color: var(--text-secondary);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-style: italic;
+    }
+    .reply-context .reply-cancel {
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+    }
+    .reply-context .reply-cancel:hover { color: var(--red); }
+
+    /* Translate toggle in header */
+    .translate-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .translate-toggle:hover {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+    .translate-toggle.active {
+      background: rgba(255, 140, 66, 0.12);
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    /* Translated content */
+    .msg-translated {
+      padding: 8px 20px 4px;
+      border-top: 1px dashed var(--border);
+      margin-top: 8px;
+    }
+    .msg-translated .translate-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--orange);
+      margin-bottom: 4px;
+    }
+    .msg-translated .translate-content {
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+    .msg-translated .translate-content p { margin-bottom: 8px; }
+    .msg-translated .translate-content p:last-child { margin-bottom: 0; }
+    .translate-loading {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 6px 0;
+    }
+
+    /* ===== LOADING ===== */
+    .loading-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 24px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .loading-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== USER INPUT ===== */
+    .user-input-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 20px;
+      margin-top: 8px;
+    }
+    .user-input-panel h4 {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .input-row .form-input.name-input {
+      width: 180px;
+      flex-shrink: 0;
+    }
+    .user-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    /* ===== SUMMARY PANEL ===== */
+    .summary-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--cyan);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      margin-top: 16px;
+      box-shadow: var(--shadow-glow);
+    }
+    .summary-panel h3 {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--cyan);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .summary-body {
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+    }
+
+    /* ===== NPC PROFILE MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fade-in 0.2s;
+    }
+    @keyframes fade-in { from { opacity: 0; } }
+    .modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      max-width: 520px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 28px;
+      box-shadow: var(--shadow-lg);
+      animation: modal-enter 0.25s ease-out;
+    }
+    @keyframes modal-enter {
+      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    }
+    .modal-content .modal-close {
+      float: right;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .modal-content .modal-close:hover { color: var(--text-primary); }
+    .modal-profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .modal-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: var(--radius-lg);
+      background: var(--bg-primary);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+    }
+    .modal-name h3 {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .modal-name .modal-en {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .modal-section {
+      margin-bottom: 18px;
+    }
+    .modal-section h4 {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .modal-beliefs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .modal-belief-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+    }
+    .modal-belief-bar {
+      width: 60px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .modal-belief-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+    .modal-quirks {
+      list-style: none;
+    }
+    .modal-quirks li {
+      padding: 4px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .modal-quirks li::before {
+      content: '>';
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      margin-right: 8px;
+    }
+    .modal-tone {
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+    .modal-domain-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .modal-domain-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 10px;
+      background: var(--cyan-glow);
+      border: 1px solid rgba(0, 229, 204, 0.25);
+      border-radius: 100px;
+      color: var(--cyan);
+    }
+
+    /* ===== EMPTY STATE ===== */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+    .empty-state p {
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 24px; }
+      .npc-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+      .msg-header { padding: 12px 14px 0; }
+      .msg-body { padding: 10px 14px 14px; }
+      .msg-beliefs { padding: 8px 14px; }
+      .input-row { flex-direction: column; }
+      .input-row .form-input.name-input { width: 100%; }
+      .container { padding: 16px; }
+    }
+
+    .hidden { display: none !important; }
+
+    /* ===== WALLET UI ===== */
+    .wallet-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: var(--radius-md);
+      border: 1px solid var(--cyan); color: var(--cyan);
+      background: transparent; font-family: var(--font-mono);
+      font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+    }
+    .wallet-btn:hover { background: var(--cyan-glow); }
+    .wallet-btn.connected {
+      border-color: var(--green); color: var(--green);
+    }
+    .wallet-btn .wallet-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--cyan); display: inline-block;
+    }
+    .wallet-btn.connected .wallet-dot { background: var(--green); }
+    .wallet-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: var(--radius-md);
+      background: var(--bg-card); border: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .wallet-badge .badge-avatar { font-size: 1.2rem; }
+    .wallet-badge .badge-name { color: var(--text-primary); font-weight: 600; }
+    .wallet-badge .badge-addr { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.75rem; }
+    .wallet-badge .badge-nft { color: var(--orange); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+
+    /* Registration Modal */
+    .register-modal { max-width: 560px; }
+    .register-form { display: flex; flex-direction: column; gap: 16px; padding: 8px 0; }
+    .register-form .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .register-form label { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+    .register-form .form-input { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; font-size: 0.95rem; font-family: var(--font-sans); }
+    .register-form .form-input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-glow); }
+    .emoji-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+    .emoji-option {
+      width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; border-radius: var(--radius-sm); border: 1px solid var(--border);
+      background: var(--bg-card); cursor: pointer; transition: all 0.15s;
+    }
+    .emoji-option:hover { border-color: var(--cyan); transform: scale(1.1); }
+    .emoji-option.selected { border-color: var(--cyan); background: var(--cyan-glow); box-shadow: 0 0 8px var(--cyan-glow); }
+    .tag-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag-option {
+      padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+      background: var(--bg-card); color: var(--text-secondary); font-size: 0.8rem;
+      font-family: var(--font-mono); cursor: pointer; transition: all 0.15s;
+    }
+    .tag-option:hover { border-color: var(--cyan-dim); }
+    .tag-option.selected { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-glow); }
+    .belief-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .belief-row input[type="text"] { flex: 1; }
+    .belief-row input[type="range"] { width: 100px; accent-color: var(--cyan); }
+    .belief-row .belief-val { font-family: var(--font-mono); font-size: 0.8rem; color: var(--cyan); min-width: 35px; }
+    .belief-add { color: var(--cyan); background: transparent; border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 6px 14px; cursor: pointer; font-size: 0.85rem; }
+    .belief-add:hover { border-color: var(--cyan); }
+    .register-info { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: var(--radius-sm); background: rgba(0,229,204,0.05); border: 1px solid rgba(0,229,204,0.15); }
+    .register-info .info-icon { font-size: 1.4rem; }
+    .register-info .info-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; }
+    .register-info .info-addr { font-family: var(--font-mono); color: var(--cyan); }
+    .verified-badge { display: inline-flex; align-items: center; gap: 3px; color: var(--green); font-size: 0.75rem; margin-left: 6px; }
+    .verified-badge::before { content: '✓'; font-weight: 700; }
+
+    .agent-identity-bar {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      margin-bottom: 10px;
+    }
+    .agent-identity-bar .agent-avatar { font-size: 1.4rem; }
+    .agent-identity-bar .agent-name { font-weight: 600; color: var(--text-primary); }
+    .agent-identity-bar .agent-tier { font-size: 0.7rem; color: var(--orange); text-transform: uppercase; font-weight: 600; font-family: var(--font-mono); padding: 2px 6px; background: rgba(255,140,66,0.1); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <a class="logo" onclick="showHome()">
+        <span class="logo-icon">&#x1f3db;&#xfe0f;</span>
+        <span>Web3</span> Agora
+      </a>
+      <div class="header-nav">
+        <div id="wallet-area">
+          <button class="wallet-btn" onclick="connectWallet()"><span class="wallet-dot"></span> Connect Wallet</button>
+        </div>
+        <button id="translate-toggle" class="translate-toggle" onclick="toggleTranslate()">&#x1f310; CN</button>
+        <button class="nav-btn" onclick="showHome()">Discussions</button>
+        <button class="nav-btn primary" onclick="scrollToCreate()">+ New</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HOME VIEW -->
+  <div id="home-view" class="container">
+    <div class="hero">
+      <h1><span class="accent">AI Agent</span> <span class="accent2">Roundtable</span></h1>
+      <p>NPC Agents and User Agents engage in roundtable discussions on Web3 topics. Each Agent has a unique personality, belief system, and on-chain identity.</p>
+      <div class="subtitle">
+        <span class="dot"></span>
+        <span>Powered by Claude &middot; Built on Base</span>
+      </div>
+    </div>
+
+    <div class="section-title">&#x1f916; NPC Agents</div>
+    <div id="npc-grid" class="npc-grid"></div>
+
+    <div id="create-panel" class="create-panel">
+      <h3><span class="icon">+</span> Start a Roundtable</h3>
+      <div class="form-group">
+        <label>Discussion Topic</label>
+        <input type="text" class="form-input" id="topic-input" placeholder="e.g., ZK Rollup vs Optimistic Rollup: which will win?" />
+      </div>
+      <div class="form-group">
+        <label>Description (optional)</label>
+        <textarea class="form-input" id="desc-input" placeholder="Provide more context for the discussion..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="create-btn" onclick="createDiscussion()">Start Discussion</button>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top: 16px;">&#x1f4ac; Recent Discussions</div>
+    <div id="discussion-list" class="discussion-list">
+      <div class="empty-state">
+        <div class="empty-icon">&#x1f3db;&#xfe0f;</div>
+        <p>No discussions yet. Start one above!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISCUSSION VIEW -->
+  <div id="disc-view" class="container hidden">
+    <div id="disc-header" class="disc-header"></div>
+    <div id="messages-container" class="messages-container"></div>
+    <div id="loading-indicator" class="loading-indicator hidden">
+      <div class="loading-spinner"></div>
+      <span id="loading-text">NPC Agents are thinking...</span>
+    </div>
+    <div id="user-input-panel" class="user-input-panel hidden">
+      <h4>&#x1f4dd; Join the discussion</h4>
+      <div id="reply-context" class="reply-context hidden">
+        <span class="reply-label">&#x21b3; Replying to <span id="reply-to-name"></span></span>
+        <span class="reply-excerpt" id="reply-excerpt"></span>
+        <button class="reply-cancel" onclick="clearReply()">&times;</button>
+      </div>
+      <div class="input-row">
+        <input type="text" class="form-input name-input" id="user-name-input" placeholder="Your Agent name" />
+      </div>
+      <textarea class="form-input" id="user-content-input" placeholder="Share your perspective..."></textarea>
+      <div class="user-actions">
+        <button class="btn btn-danger" onclick="archiveDiscussion()">Archive Discussion</button>
+        <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+    <div id="summary-panel" class="summary-panel hidden">
+      <h3>&#x1f4cb; Discussion Summary</h3>
+      <div id="summary-body" class="summary-body"></div>
+    </div>
+  </div>
+
+  <!-- NPC MODAL -->
+  <div id="npc-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeModal()">
+    <div class="modal-content" id="npc-modal-content"></div>
+  </div>
+
+  <!-- AGENT REGISTRATION MODAL -->
+  <div id="register-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeRegisterModal()">
+    <div class="modal-content register-modal">
+      <button class="modal-close" onclick="closeRegisterModal()">&times;</button>
+      <h3 style="margin-bottom:4px;">Deploy Your Agent</h3>
+      <div id="register-wallet-info" class="register-info" style="margin-bottom:12px;">
+        <span class="info-icon">&#x1f4b3;</span>
+        <div class="info-text">
+          Deploying EIP-4337 smart contract wallet on Base for<br>
+          <span class="info-addr" id="register-addr-display"></span>
+        </div>
+      </div>
+      <div class="register-form" id="register-form">
+        <div class="form-group">
+          <label>Agent Name</label>
+          <input type="text" class="form-input" id="reg-name" placeholder="e.g., CryptoAlice" maxlength="30" />
+        </div>
+        <div class="form-group">
+          <label>Avatar</label>
+          <div class="emoji-picker" id="emoji-picker"></div>
+        </div>
+        <div class="form-group">
+          <label>Domain Expertise</label>
+          <div class="tag-picker" id="tag-picker"></div>
+        </div>
+        <div class="form-group">
+          <label>Core Beliefs</label>
+          <div id="beliefs-container"></div>
+          <button class="belief-add" onclick="addBeliefRow()">+ Add belief</button>
+        </div>
+        <div class="form-group">
+          <label>Speaking Tone</label>
+          <input type="text" class="form-input" id="reg-tone" placeholder="e.g., Analytical, passionate, data-driven" />
+        </div>
+        <div class="form-group">
+          <label>Sentence Length</label>
+          <select class="form-input" id="reg-sentence-length">
+            <option value="short">Short</option>
+            <option value="medium" selected>Medium</option>
+            <option value="long">Long</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="margin-top:8px;" onclick="submitRegistration()">
+          &#x1f680; Deploy Agent &amp; Mint NFT
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== STATE =====
+    let npcs = [];
+    let currentDiscussionId = null;
+    let eventSource = null;
+    let allMessages = []; // track all messages for reply/quote lookups
+    let replyState = null; // { messageId, agentName, excerpt }
+    let translateEnabled = false;
+    const translationCache = {}; // messageId -> translated text
+
+    // Wallet state
+    let walletAddress = null;
+    let userAgent = null;    // registered agent profile from server
+    let ethProvider = null;  // ethers.BrowserProvider
+    let ethSigner = null;    // ethers.JsonRpcSigner
+    let selectedAvatar = '👤';
+    let selectedTags = new Set();
+
+    const AVATAR_OPTIONS = ['👤','🦊','🐺','🦁','🐲','🦅','🐙','🤖','👾','🎭','🧙','🏴‍☠️','⚡','🔥','💎','🌊','🗡️','🛡️','🎯','🧪'];
+    const TAG_OPTIONS = ['bitcoin','ethereum','defi','nft','dao','l2','privacy','ai','gaming','social','infrastructure','regulation','tokenomics','security','governance'];
+
+    const NPC_COLORS = {
+      satoshi: '#f59e0b',
+      'bitcoin-chain': '#f97316',
+      'ethereum-chain': '#6366f1',
+      turing: '#06b6d4',
+      einstein: '#a855f7',
+    };
+
+    // ===== INIT =====
+    async function init() {
+      await loadNPCs();
+      await loadDiscussions();
+      await autoDetectWallet();
+    }
+
+    // ===== WALLET =====
+    async function autoDetectWallet() {
+      if (!window.ethereum) return;
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length > 0) {
+          await connectWallet(true);
+        }
+      } catch (e) { /* silent */ }
+    }
+
+    async function connectWallet(silent) {
+      if (!window.ethereum) {
+        if (!silent) alert('Please install MetaMask or another Web3 wallet to connect.');
+        return;
+      }
+      try {
+        ethProvider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = silent
+          ? await ethProvider.send('eth_accounts', [])
+          : await ethProvider.send('eth_requestAccounts', []);
+        if (accounts.length === 0) return;
+        walletAddress = accounts[0];
+        ethSigner = await ethProvider.getSigner();
+
+        // Check if already registered
+        const res = await fetch(`/api/agents/${walletAddress}`);
+        if (res.ok) {
+          userAgent = await res.json();
+          updateWalletUI('registered');
+        } else {
+          updateWalletUI('connected');
+          if (!silent) showRegisterModal();
+        }
+
+        // Listen for account changes
+        window.ethereum.on('accountsChanged', (accts) => {
+          if (accts.length === 0) { disconnectWallet(); }
+          else { walletAddress = accts[0]; connectWallet(true); }
+        });
+      } catch (e) {
+        if (!silent) console.error('Wallet connection failed:', e);
+      }
+    }
+
+    function disconnectWallet() {
+      walletAddress = null;
+      userAgent = null;
+      ethProvider = null;
+      ethSigner = null;
+      updateWalletUI('disconnected');
+    }
+
+    function updateWalletUI(state) {
+      const area = document.getElementById('wallet-area');
+      if (state === 'disconnected' || !walletAddress) {
+        area.innerHTML = `<button class="wallet-btn" onclick="connectWallet()"><span class="wallet-dot"></span> Connect Wallet</button>`;
+      } else if (state === 'connected' && !userAgent) {
+        const short = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+        area.innerHTML = `
+          <div class="wallet-badge" style="cursor:pointer;" onclick="showRegisterModal()">
+            <span class="badge-avatar">👤</span>
+            <div>
+              <div class="badge-name">Register Agent</div>
+              <div class="badge-addr">${short}</div>
+            </div>
+          </div>`;
+      } else if (state === 'registered' && userAgent) {
+        const short = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+        area.innerHTML = `
+          <div class="wallet-badge">
+            <span class="badge-avatar">${userAgent.persona.avatar}</span>
+            <div>
+              <div class="badge-name">${escapeHtml(userAgent.persona.name)}</div>
+              <div class="badge-addr">${short}</div>
+            </div>
+            <span class="badge-nft">${userAgent.nftTier} #${userAgent.nftTokenId}</span>
+          </div>`;
+      }
+      updateUserInputPanel();
+    }
+
+    function updateUserInputPanel() {
+      const nameInput = document.getElementById('user-name-input');
+      const identityBar = document.getElementById('agent-identity-bar');
+      if (!nameInput) return;
+      if (userAgent) {
+        nameInput.value = userAgent.persona.name;
+        nameInput.style.display = 'none';
+        if (!identityBar) {
+          const bar = document.createElement('div');
+          bar.id = 'agent-identity-bar';
+          bar.className = 'agent-identity-bar';
+          bar.innerHTML = `
+            <span class="agent-avatar">${userAgent.persona.avatar}</span>
+            <span class="agent-name">${escapeHtml(userAgent.persona.name)}</span>
+            <span class="agent-tier">${userAgent.nftTier} #${userAgent.nftTokenId}</span>
+          `;
+          nameInput.parentNode.insertBefore(bar, nameInput);
+        }
+      } else {
+        nameInput.style.display = '';
+        if (identityBar) identityBar.remove();
+      }
+    }
+
+    // ===== REGISTRATION MODAL =====
+    function showRegisterModal() {
+      if (!walletAddress) return;
+      document.getElementById('register-addr-display').textContent = walletAddress;
+
+      // Render emoji picker
+      const picker = document.getElementById('emoji-picker');
+      picker.innerHTML = AVATAR_OPTIONS.map(e =>
+        `<div class="emoji-option${e === selectedAvatar ? ' selected' : ''}" onclick="selectAvatar('${e}')">${e}</div>`
+      ).join('');
+
+      // Render tag picker
+      const tagPicker = document.getElementById('tag-picker');
+      tagPicker.innerHTML = TAG_OPTIONS.map(t =>
+        `<div class="tag-option${selectedTags.has(t) ? ' selected' : ''}" onclick="toggleTag('${t}')">${t}</div>`
+      ).join('');
+
+      // Init beliefs
+      const bc = document.getElementById('beliefs-container');
+      if (bc.children.length === 0) { addBeliefRow(); addBeliefRow(); }
+
+      document.getElementById('register-modal').classList.remove('hidden');
+    }
+
+    function closeRegisterModal() {
+      document.getElementById('register-modal').classList.add('hidden');
+    }
+
+    function selectAvatar(emoji) {
+      selectedAvatar = emoji;
+      document.querySelectorAll('.emoji-option').forEach(el => {
+        el.classList.toggle('selected', el.textContent === emoji);
+      });
+    }
+
+    function toggleTag(tag) {
+      if (selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag);
+      document.querySelectorAll('.tag-option').forEach(el => {
+        el.classList.toggle('selected', selectedTags.has(el.textContent));
+      });
+    }
+
+    function addBeliefRow() {
+      const container = document.getElementById('beliefs-container');
+      const row = document.createElement('div');
+      row.className = 'belief-row';
+      row.innerHTML = `
+        <input type="text" class="form-input" placeholder="e.g., Decentralization matters" style="flex:1;" />
+        <input type="range" min="10" max="100" value="75" oninput="this.nextElementSibling.textContent=this.value+'%'" />
+        <span class="belief-val">75%</span>
+      `;
+      container.appendChild(row);
+    }
+
+    async function submitRegistration() {
+      const name = document.getElementById('reg-name').value.trim();
+      if (!name) { alert('Please enter an agent name.'); return; }
+      if (!walletAddress || !ethSigner) { alert('Wallet not connected.'); return; }
+
+      // Collect beliefs
+      const beliefs = {};
+      document.querySelectorAll('.belief-row').forEach(row => {
+        const text = row.querySelector('input[type="text"]').value.trim();
+        const val = parseInt(row.querySelector('input[type="range"]').value) / 100;
+        if (text) beliefs[text] = val;
+      });
+
+      const tone = document.getElementById('reg-tone').value.trim() || 'Conversational';
+      const sentenceLength = document.getElementById('reg-sentence-length').value;
+
+      // Sign registration message
+      const timestamp = Date.now();
+      const signMessage = `Web3 Agora: Register agent for ${walletAddress} at ${timestamp}`;
+      let signature;
+      try {
+        signature = await ethSigner.signMessage(signMessage);
+      } catch (e) {
+        alert('Signature rejected. Please sign the message to register.');
+        return;
+      }
+
+      // POST to register
+      const btn = document.querySelector('#register-form .btn-primary');
+      btn.disabled = true;
+      btn.textContent = 'Deploying...';
+
+      try {
+        const res = await fetch('/api/agents/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress,
+            signature,
+            timestamp,
+            persona: {
+              name,
+              avatar: selectedAvatar,
+              domainTags: [...selectedTags],
+              coreBeliefs: beliefs,
+              speakingStyle: { tone, sentenceLength },
+            },
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Registration failed: ' + err.error);
+          return;
+        }
+
+        userAgent = await res.json();
+        closeRegisterModal();
+        updateWalletUI('registered');
+      } catch (e) {
+        alert('Registration failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 Deploy Agent & Mint NFT';
+      }
+    }
+
+    // ===== NPC LOADING =====
+    async function loadNPCs() {
+      try {
+        const res = await fetch('/api/npcs');
+        npcs = await res.json();
+        renderNPCGrid();
+      } catch (e) {
+        console.error('Failed to load NPCs:', e);
+      }
+    }
+
+    function getNPC(id) {
+      return npcs.find(n => n.id === id);
+    }
+
+    function renderNPCGrid() {
+      const grid = document.getElementById('npc-grid');
+      grid.innerHTML = npcs.map(npc => `
+        <div class="npc-card" onclick="showNPCProfile('${npc.id}')">
+          <div class="npc-avatar">${npc.avatar}</div>
+          <div class="npc-name">${npc.name}</div>
+          <span class="npc-type ${npc.type}">${npc.type}</span>
+          <div class="npc-tags">
+            ${npc.domainTags.slice(0, 4).map(t => `<span class="tag">${t}</span>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ===== NPC PROFILE MODAL =====
+    function showNPCProfile(id) {
+      const npc = getNPC(id);
+      if (!npc) return;
+
+      const beliefs = Object.entries(npc.coreBeliefs).map(([k, v]) => {
+        const pct = Math.round(v * 100);
+        const cls = v >= 0.8 ? 'conviction-high' : v >= 0.5 ? 'conviction-mid' : 'conviction-low';
+        return `
+          <div class="modal-belief-item">
+            <span>${k}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">${pct}%</span>
+              <div class="modal-belief-bar">
+                <div class="modal-belief-bar-fill ${cls}" style="width:${pct}%"></div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      document.getElementById('npc-modal-content').innerHTML = `
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div class="modal-profile-header">
+          <div class="modal-avatar">${npc.avatar}</div>
+          <div class="modal-name">
+            <h3>${npc.name}</h3>
+            <span class="npc-type ${npc.type}" style="margin-top:4px;">${npc.type}</span>
+          </div>
+        </div>
+        <div class="modal-section">
+          <h4>Domain Expertise</h4>
+          <div class="modal-domain-tags">
+            ${npc.domainTags.map(t => `<span class="modal-domain-tag">${t}</span>`).join('')}
+          </div>
+        </div>
+        <div class="modal-section">
+          <h4>Core Beliefs</h4>
+          <div class="modal-beliefs-list">${beliefs}</div>
+        </div>
+        <div class="modal-section">
+          <h4>Speaking Style</h4>
+          <p class="modal-tone">"${npc.speakingStyle.tone}"</p>
+        </div>
+        <div class="modal-section">
+          <h4>Quirks</h4>
+          <ul class="modal-quirks">
+            ${npc.speakingStyle.quirks.map(q => `<li>${q}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+      document.getElementById('npc-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('npc-modal').classList.add('hidden');
+    }
+
+    // ===== DISCUSSIONS =====
+    async function loadDiscussions() {
+      try {
+        const res = await fetch('/api/discussions');
+        const discussions = await res.json();
+        renderDiscussionList(discussions);
+      } catch (e) {
+        console.error('Failed to load discussions:', e);
+      }
+    }
+
+    function renderDiscussionList(discussions) {
+      const list = document.getElementById('discussion-list');
+      if (!discussions.length) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">&#x1f3db;&#xfe0f;</div>
+            <p>No discussions yet. Start one above!</p>
+          </div>`;
+        return;
+      }
+
+      const AVATARS = { satoshi: '\u{1f977}', 'bitcoin-chain': '\u20bf', 'ethereum-chain': '\u27e0', turing: '\u{1f5a5}\ufe0f', einstein: '\u{1f9e0}' };
+      const STATUS_LABELS = { pending: 'Pending', npc_round: 'NPC Round', open: 'Open', archived: 'Archived' };
+
+      list.innerHTML = discussions.map(d => {
+        const avatars = (d.participants || []).slice(0, 5).map(pid =>
+          `<span class="mini-avatar">${AVATARS[pid] || '\u{1f464}'}</span>`
+        ).join('');
+        const time = new Date(d.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="disc-item" onclick="openDiscussion('${d.id}')">
+            <div class="disc-avatars">${avatars}</div>
+            <div class="disc-info">
+              <div class="disc-topic">${escapeHtml(d.topic)}</div>
+              <div class="disc-meta">${d.messages.length} messages &middot; ${time}</div>
+            </div>
+            <div class="disc-status">
+              <span class="status-badge status-${d.status}">${STATUS_LABELS[d.status] || d.status}</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ===== CREATE DISCUSSION =====
+    async function createDiscussion() {
+      const topic = document.getElementById('topic-input').value.trim();
+      if (!topic) return;
+      const description = document.getElementById('desc-input').value.trim();
+
+      document.getElementById('create-btn').disabled = true;
+      document.getElementById('create-btn').textContent = 'Starting...';
+
+      try {
+        showDiscussionView(null, topic, description);
+        showLoading('NPC Agents are discussing...');
+
+        const res = await fetch('/api/discussions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, description: description || topic, npcRounds: 1 }),
+        });
+        const discussion = await res.json();
+        currentDiscussionId = discussion.id;
+        connectSSE(discussion.id);
+        renderDiscussionHeader(discussion);
+        renderAllMessages(discussion.messages);
+        hideLoading();
+        if (discussion.status === 'open') {
+          document.getElementById('user-input-panel').classList.remove('hidden');
+          updateUserInputPanel();
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+
+      document.getElementById('create-btn').disabled = false;
+      document.getElementById('create-btn').textContent = 'Start Discussion';
+      document.getElementById('topic-input').value = '';
+      document.getElementById('desc-input').value = '';
+    }
+
+    // ===== OPEN EXISTING DISCUSSION =====
+    async function openDiscussion(id) {
+      try {
+        const res = await fetch(`/api/discussions/${id}`);
+        const discussion = await res.json();
+        currentDiscussionId = id;
+        showDiscussionView(discussion);
+        connectSSE(id);
+        renderDiscussionHeader(discussion);
+        renderAllMessages(discussion.messages);
+        if (discussion.status === 'open') {
+          document.getElementById('user-input-panel').classList.remove('hidden');
+          updateUserInputPanel();
+        }
+        if (discussion.status === 'archived' && discussion.summary) {
+          showSummary(discussion.summary);
+        }
+      } catch (e) {
+        alert('Error loading discussion');
+      }
+    }
+
+    // ===== VIEW SWITCHING =====
+    function showHome() {
+      disconnectSSE();
+      currentDiscussionId = null;
+      document.getElementById('home-view').classList.remove('hidden');
+      document.getElementById('disc-view').classList.add('hidden');
+      loadDiscussions();
+    }
+
+    function showDiscussionView(discussion, topic, description) {
+      document.getElementById('home-view').classList.add('hidden');
+      document.getElementById('disc-view').classList.remove('hidden');
+      document.getElementById('messages-container').innerHTML = '';
+      document.getElementById('user-input-panel').classList.add('hidden');
+      document.getElementById('summary-panel').classList.add('hidden');
+      hideLoading();
+
+      // Reset state
+      allMessages = [];
+      replyState = null;
+      Object.keys(translationCache).forEach(k => delete translationCache[k]);
+      document.getElementById('reply-context')?.classList.add('hidden');
+
+      if (!discussion && topic) {
+        document.getElementById('disc-header').innerHTML = `
+          <button class="back-btn" onclick="showHome()">&larr; Back to Discussions</button>
+          <h2>${escapeHtml(topic)}</h2>
+          ${description ? `<div class="disc-desc">${escapeHtml(description)}</div>` : ''}
+          <div class="disc-header-meta">
+            <span class="status-badge status-npc_round">NPC Round</span>
+          </div>
+        `;
+      }
+    }
+
+    function scrollToCreate() {
+      showHome();
+      setTimeout(() => {
+        document.getElementById('create-panel').scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('topic-input').focus();
+      }, 100);
+    }
+
+    // ===== RENDER DISCUSSION HEADER =====
+    function renderDiscussionHeader(d) {
+      const AVATARS = { satoshi: '\u{1f977}', 'bitcoin-chain': '\u20bf', 'ethereum-chain': '\u27e0', turing: '\u{1f5a5}\ufe0f', einstein: '\u{1f9e0}' };
+      const STATUS_LABELS = { pending: 'Pending', npc_round: 'NPC Round', open: 'Open', archived: 'Archived' };
+      const time = new Date(d.createdAt).toLocaleString('en-US');
+
+      const participants = (d.participants || []).map(pid => {
+        const npc = getNPC(pid);
+        return `<span class="participant-chip">
+          <span class="p-avatar">${AVATARS[pid] || '\u{1f464}'}</span>
+          ${npc ? npc.name : pid}
+        </span>`;
+      }).join('');
+
+      document.getElementById('disc-header').innerHTML = `
+        <button class="back-btn" onclick="showHome()">&larr; Back to Discussions</button>
+        <h2>${escapeHtml(d.topic)}</h2>
+        ${d.description && d.description !== d.topic ? `<div class="disc-desc">${escapeHtml(d.description)}</div>` : ''}
+        <div class="disc-header-meta">
+          <span class="status-badge status-${d.status}">${STATUS_LABELS[d.status] || d.status}</span>
+          <span class="meta-item">${d.messages.length} messages</span>
+          <span class="meta-item">${time}</span>
+        </div>
+        <div class="disc-participants">${participants}</div>
+      `;
+    }
+
+    // ===== RENDER MESSAGES =====
+    function renderAllMessages(messages) {
+      const container = document.getElementById('messages-container');
+      container.innerHTML = '';
+      allMessages = [...messages];
+      messages.forEach(msg => appendMessage(msg, false));
+    }
+
+    function appendMessage(msg, animate = true) {
+      const container = document.getElementById('messages-container');
+      // Track message
+      if (!allMessages.find(m => m.id === msg.id)) {
+        allMessages.push(msg);
+      }
+
+      const isUser = msg.agentId?.startsWith('user-');
+      const npc = !isUser ? getNPC(msg.agentId) : null;
+
+      const AVATARS = { satoshi: '\u{1f977}', 'bitcoin-chain': '\u20bf', 'ethereum-chain': '\u27e0', turing: '\u{1f5a5}\ufe0f', einstein: '\u{1f9e0}' };
+      const avatar = AVATARS[msg.agentId] || '\u{1f464}';
+      const time = new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const color = NPC_COLORS[msg.agentId] || 'var(--orange)';
+      const msgId = msg.id || ('msg-' + msg.timestamp);
+
+      // Format message content
+      const formatted = formatContent(msg.content);
+
+      // Build beliefs bar for NPC
+      let beliefsHtml = '';
+      if (npc && npc.coreBeliefs) {
+        const topBeliefs = Object.entries(npc.coreBeliefs)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+        beliefsHtml = `<div class="msg-beliefs">
+          ${topBeliefs.map(([k, v]) => {
+            const cls = v >= 0.8 ? 'conviction-high' : v >= 0.5 ? 'conviction-mid' : 'conviction-low';
+            return `<span class="belief-tag">
+              ${k}
+              <span class="conviction"><span class="conviction-fill ${cls}" style="width:${Math.round(v * 100)}%"></span></span>
+            </span>`;
+          }).join('')}
+        </div>`;
+      }
+
+      // Domain tags for NPC
+      let footerHtml = '';
+      if (npc && npc.domainTags) {
+        footerHtml = `<div class="msg-footer">
+          ${npc.domainTags.slice(0, 5).map(t => `<span class="domain-tag">${t}</span>`).join('')}
+        </div>`;
+      }
+
+      // Quotes from this message
+      let quotesHtml = '';
+      if (msg.quotes && msg.quotes.length > 0) {
+        quotesHtml = `<div style="padding: 8px 20px 0;">
+          ${msg.quotes.map(q => `
+            <div class="msg-quote-block">
+              <div class="quote-author">@${escapeHtml(q.agentName)}</div>
+              <div class="quote-text">"${escapeHtml(q.excerpt)}"</div>
+            </div>
+          `).join('')}
+        </div>`;
+      }
+
+      // Reply-to indicator (show who they're replying to, with link)
+      let replyHtml = '';
+      if (msg.replyTo && !msg.quotes?.length) {
+        const replyMsg = allMessages.find(m => m.id === msg.replyTo);
+        const replyName = replyMsg ? replyMsg.agentName : msg.replyTo;
+        replyHtml = `<div class="msg-reply-to">&#x21b3; replying to @${escapeHtml(replyName)}</div>`;
+      }
+
+      // Action buttons (reply + translate)
+      const actionsHtml = `<div class="msg-actions">
+        <button class="msg-action-btn" onclick="setReply('${msgId}', '${escapeAttr(msg.agentName)}')">&#x21b3; Reply</button>
+        <button class="msg-action-btn" onclick="quoteMessage('${msgId}')">&#x275d; Quote</button>
+        <button class="msg-action-btn translate-btn" onclick="translateMessage('${msgId}', this)" data-msgid="${msgId}">&#x1f310; Translate</button>
+      </div>`;
+
+      const div = document.createElement('div');
+      div.className = `message-card${isUser ? ' user-msg' : ''}`;
+      div.id = `msg-${msgId}`;
+      div.dataset.msgid = msgId;
+      if (!animate) div.style.animation = 'none';
+
+      div.innerHTML = `
+        ${replyHtml}
+        <div class="msg-header">
+          <div class="msg-avatar" style="border-color: ${color}">${avatar}</div>
+          <div class="msg-agent-info">
+            <div class="msg-agent-name">
+              ${escapeHtml(msg.agentName)}
+              ${!npc && userAgent && msg.agentName === userAgent.persona.name ? '<span class="verified-badge">verified</span>' : ''}
+            </div>
+            <div class="msg-agent-meta">
+              ${npc ? `<span class="npc-type ${npc.type}">${npc.type}</span>` : '<span class="npc-type" style="background:rgba(255,140,66,0.15);color:var(--orange);border:1px solid rgba(255,140,66,0.3)">user</span>'}
+              ${npc ? `<span>${npc.speakingStyle.tone}</span>` : ''}
+            </div>
+          </div>
+          <div class="msg-timestamp">${time}</div>
+        </div>
+        ${beliefsHtml}
+        ${quotesHtml}
+        <div class="msg-body" id="msg-body-${msgId}">${formatted}</div>
+        <div class="msg-translate-area" id="msg-translate-${msgId}"></div>
+        ${footerHtml}
+        ${actionsHtml}
+      `;
+
+      container.appendChild(div);
+      if (animate) {
+        div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }
+
+    function formatContent(text) {
+      const lines = text.split('\n');
+      const result = [];
+      let currentParagraph = [];
+
+      for (const line of lines) {
+        // Check for quote lines: > @Name: "text"
+        const quoteMatch = line.match(/^>\s*@([^:]+):\s*["\u201c]([^"\u201d]*)["\u201d]?/);
+        if (quoteMatch) {
+          // Flush current paragraph
+          if (currentParagraph.length) {
+            result.push('<p>' + formatInline(currentParagraph.join(' ')) + '</p>');
+            currentParagraph = [];
+          }
+          result.push(`<div class="msg-quote-block"><div class="quote-author">@${escapeHtml(quoteMatch[1])}</div><div class="quote-text">"${escapeHtml(quoteMatch[2])}"</div></div>`);
+        } else if (line.trim() === '') {
+          // Paragraph break
+          if (currentParagraph.length) {
+            result.push('<p>' + formatInline(currentParagraph.join(' ')) + '</p>');
+            currentParagraph = [];
+          }
+        } else {
+          currentParagraph.push(line);
+        }
+      }
+      if (currentParagraph.length) {
+        result.push('<p>' + formatInline(currentParagraph.join(' ')) + '</p>');
+      }
+      return result.join('');
+    }
+
+    function formatInline(text) {
+      let html = escapeHtml(text);
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+      return html;
+    }
+
+    function escapeAttr(str) {
+      return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    // ===== REPLY & QUOTE =====
+    function setReply(messageId, agentName) {
+      const msg = allMessages.find(m => m.id === messageId);
+      if (!msg) return;
+      const excerpt = msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : '');
+      replyState = { messageId, agentName: msg.agentName, excerpt };
+      document.getElementById('reply-context').classList.remove('hidden');
+      document.getElementById('reply-to-name').textContent = '@' + msg.agentName;
+      document.getElementById('reply-excerpt').textContent = excerpt;
+      document.getElementById('user-content-input').focus();
+    }
+
+    function quoteMessage(messageId) {
+      const msg = allMessages.find(m => m.id === messageId);
+      if (!msg) return;
+      // Get selected text if any, otherwise use first sentence
+      const selection = window.getSelection().toString().trim();
+      let excerpt = selection || msg.content.split(/[.!?\n]/).filter(Boolean)[0]?.trim() || msg.content.substring(0, 80);
+      if (excerpt.length > 120) excerpt = excerpt.substring(0, 120) + '...';
+
+      // Set reply and insert quote into textarea
+      setReply(messageId, msg.agentName);
+      const textarea = document.getElementById('user-content-input');
+      const quoteText = `> @${msg.agentName}: "${excerpt}"\n\n`;
+      textarea.value = quoteText + textarea.value;
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }
+
+    function clearReply() {
+      replyState = null;
+      document.getElementById('reply-context').classList.add('hidden');
+    }
+
+    // ===== TRANSLATE =====
+    function toggleTranslate() {
+      translateEnabled = !translateEnabled;
+      const btn = document.getElementById('translate-toggle');
+      btn.classList.toggle('active', translateEnabled);
+      if (translateEnabled) {
+        // Translate all visible messages
+        document.querySelectorAll('.message-card').forEach(card => {
+          const msgId = card.dataset.msgid;
+          if (msgId) translateMessage(msgId);
+        });
+      } else {
+        // Clear all translations
+        document.querySelectorAll('.msg-translate-area').forEach(el => { el.innerHTML = ''; });
+      }
+    }
+
+    async function translateMessage(messageId, btn) {
+      const area = document.getElementById('msg-translate-' + messageId);
+      if (!area) return;
+
+      // Toggle: if already showing translation, remove it
+      if (area.innerHTML && !translateEnabled) {
+        area.innerHTML = '';
+        return;
+      }
+
+      // Check cache
+      if (translationCache[messageId]) {
+        area.innerHTML = `<div class="msg-translated"><div class="translate-label">&#x1f310; Chinese Translation</div><div class="translate-content">${formatContent(translationCache[messageId])}</div></div>`;
+        return;
+      }
+
+      const msg = allMessages.find(m => m.id === messageId);
+      if (!msg) return;
+
+      area.innerHTML = '<div class="msg-translated"><div class="translate-loading">Translating...</div></div>';
+
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: msg.content }),
+        });
+        const data = await res.json();
+        if (data.translated) {
+          translationCache[messageId] = data.translated;
+          area.innerHTML = `<div class="msg-translated"><div class="translate-label">&#x1f310; Chinese Translation</div><div class="translate-content">${formatContent(data.translated)}</div></div>`;
+        }
+      } catch (e) {
+        area.innerHTML = '<div class="msg-translated"><div class="translate-loading" style="color:var(--red)">Translation failed</div></div>';
+      }
+    }
+
+    // ===== SSE =====
+    function connectSSE(discussionId) {
+      disconnectSSE();
+      eventSource = new EventSource(`/api/discussions/${discussionId}/stream`);
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'archived') {
+          showSummary(data.summary);
+          hideLoading();
+          document.getElementById('user-input-panel').classList.add('hidden');
+          updateStatusBadge('archived');
+          disconnectSSE();
+          return;
+        }
+        // New message from SSE — only append if not already rendered
+        // (For now, SSE messages during active discussion are for real-time updates)
+      };
+    }
+
+    function disconnectSSE() {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    }
+
+    function updateStatusBadge(status) {
+      const badges = document.querySelectorAll('.status-badge');
+      const labels = { pending: 'Pending', npc_round: 'NPC Round', open: 'Open', archived: 'Archived' };
+      badges.forEach(b => {
+        b.className = `status-badge status-${status}`;
+        b.textContent = labels[status] || status;
+      });
+    }
+
+    // ===== SEND MESSAGE =====
+    async function sendMessage() {
+      const name = document.getElementById('user-name-input').value.trim();
+      const content = document.getElementById('user-content-input').value.trim();
+      if (!name || !content || !currentDiscussionId) return;
+
+      document.getElementById('send-btn').disabled = true;
+      document.getElementById('send-btn').textContent = 'Sending...';
+
+      // Build reply/quote payload
+      const replyTo = replyState?.messageId;
+      const quotes = replyState ? [{ messageId: replyState.messageId, agentName: replyState.agentName, excerpt: replyState.excerpt }] : undefined;
+
+      // Show user message immediately
+      const userMsgId = 'user-' + Date.now();
+      appendMessage({
+        id: userMsgId,
+        agentId: 'user-' + name,
+        agentName: name,
+        content,
+        timestamp: Date.now(),
+        replyTo,
+        quotes,
+      });
+      document.getElementById('user-content-input').value = '';
+      clearReply();
+      showLoading('NPC Agents are responding...');
+
+      try {
+        const res = await fetch(`/api/discussions/${currentDiscussionId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentName: name, content, replyTo, quotes, walletAddress: walletAddress || undefined }),
+        });
+        const data = await res.json();
+        if (data.followUps) {
+          data.followUps.forEach(msg => appendMessage(msg));
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+
+      hideLoading();
+      document.getElementById('send-btn').disabled = false;
+      document.getElementById('send-btn').textContent = 'Send';
+    }
+
+    // ===== ARCHIVE =====
+    async function archiveDiscussion() {
+      if (!currentDiscussionId) return;
+      showLoading('Generating discussion summary...');
+      document.getElementById('user-input-panel').classList.add('hidden');
+
+      try {
+        const res = await fetch(`/api/discussions/${currentDiscussionId}/archive`, { method: 'POST' });
+        const discussion = await res.json();
+        if (discussion.summary) {
+          showSummary(discussion.summary);
+        }
+        updateStatusBadge('archived');
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+      hideLoading();
+    }
+
+    function showSummary(summary) {
+      document.getElementById('summary-body').textContent = summary;
+      document.getElementById('summary-panel').classList.remove('hidden');
+      document.getElementById('summary-panel').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ===== HELPERS =====
+    function showLoading(text) {
+      document.getElementById('loading-text').textContent = text || 'Loading...';
+      document.getElementById('loading-indicator').classList.remove('hidden');
+    }
+    function hideLoading() {
+      document.getElementById('loading-indicator').classList.add('hidden');
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ===== KEYBOARD =====
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Enter' && !e.shiftKey) {
+        if (document.activeElement === document.getElementById('user-content-input')) {
+          e.preventDefault();
+          sendMessage();
+        }
+        if (document.activeElement === document.getElementById('topic-input')) {
+          e.preventDefault();
+          createDiscussion();
+        }
+      }
+    });
+
+    // ===== BOOT =====
+    init();
+  </script>
+</body>
+</html>
