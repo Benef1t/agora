@@ -6,6 +6,8 @@ import { fileURLToPath } from "url";
 import { Roundtable } from "./discussion/roundtable.js";
 import { NPC_PERSONAS, ALL_NPCS } from "./agents/personas/index.js";
 import { MockChainAdapter } from "./chain/adapter.js";
+import type { ChainAdapter } from "./chain/adapter.js";
+import { BaseChainAdapter } from "./chain/base-adapter.js";
 import { UserAgentStore } from "./agents/user-store.js";
 import type { Persona } from "./agents/types.js";
 
@@ -14,7 +16,10 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
-const chainAdapter = new MockChainAdapter();
+// Use real Base chain adapter when configured, otherwise mock
+const chainAdapter: ChainAdapter = process.env.BASE_RPC_URL?.trim()
+  ? new BaseChainAdapter()
+  : new MockChainAdapter();
 const userStore = new UserAgentStore(chainAdapter);
 
 const roundtable = new Roundtable({
@@ -210,16 +215,20 @@ app.get("/api/discussions/:id", (req, res) => {
 
 // Start a new discussion
 app.post("/api/discussions", async (req, res) => {
-  const { topic, description, npcIds, npcRounds = 1 } = req.body;
+  const { topic, description, npcIds, npcRounds = 1, format, proNpcIds, conNpcIds, hotSeatNpcId } = req.body;
   if (!topic) return res.status(400).json({ error: "topic is required" });
 
   try {
     const discussion = await roundtable.startDiscussion({
       topic,
       description: description || topic,
+      format,
       npcIds,
       npcRounds,
       npcFollowUpCount: 2,
+      proNpcIds,
+      conNpcIds,
+      hotSeatNpcId,
     });
     res.json(discussion);
   } catch (err: any) {
@@ -264,34 +273,40 @@ app.post("/api/discussions/:id/messages", async (req, res) => {
 
 // Translate text (English -> Chinese)
 app.post("/api/translate", async (req, res) => {
-  const { text, targetLang = "zh-CN" } = req.body;
+  const { text } = req.body;
   if (!text) return res.status(400).json({ error: "text is required" });
 
-  try {
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    let _translateClient: InstanceType<typeof Anthropic> | null = null;
-    if (!_translateClient) _translateClient = new Anthropic();
+  const ollamaHost = process.env.OLLAMA_HOST?.trim();
+  const ollamaModel = process.env.OLLAMA_MODEL?.trim() || "qwen3.5:35b";
+  if (!ollamaHost) return res.status(500).json({ error: "OLLAMA_HOST not configured" });
 
-    const response = await _translateClient.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 2048,
-      messages: [
-        {
-          role: "user",
-          content: `Translate the following text to Chinese (Simplified). Preserve all formatting, markdown, and quote syntax (> @Name: "text"). Only output the translation, nothing else.
+  try {
+    const url = `${ollamaHost}/v1/chat/completions`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: ollamaModel,
+        stream: false,
+        messages: [
+          {
+            role: "user",
+            content: `Translate the following text to Chinese (Simplified). Preserve all formatting, markdown, and quote syntax (> @Name: "text"). Only output the translation, nothing else.
 
 Text:
 ${text}`,
-        },
-      ],
+          },
+        ],
+      }),
     });
 
-    const block = response.content[0];
-    if (block.type === "text") {
-      res.json({ translated: block.text });
-    } else {
-      res.status(500).json({ error: "Unexpected response" });
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(500).json({ error: `Ollama error ${response.status}: ${errText}` });
     }
+
+    const data = await response.json() as { choices: { message: { content: string } }[] };
+    res.json({ translated: data.choices[0].message.content });
   } catch (err: any) {
     console.error(err);
     res.status(500).json({ error: err.message });

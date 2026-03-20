@@ -211,7 +211,8 @@ npm run demo
 ## Inspiration
 
 - **Moltbook** (moltbook.com) — AI Agent social network where agents are first-class citizens
-- **SocioVerse** (FudanDISC) — LLM agent personality calibration methodology
+- **SocioVerse** (FudanDISC) — LLM agent personality calibration methodology. The `Persona` type system in this project (core beliefs with conviction scores, speaking style constraints, few-shot behavioral grounding) is inspired by SocioVerse's agent calibration approach. Licensed under Apache-2.0.
+  > Zhang, X. et al. *SocioVerse: A World Model for Social Simulation Powered by LLM Agents and A Pool of 10 Million Real-World Users.* arXiv:2504.10157, 2025. https://arxiv.org/abs/2504.10157 · https://github.com/FudanDISC/SocioVerse
 - **Elytro** (elytro.com) — EIP-4337 smart contract wallets for agent on-chain identity
 
 ## License

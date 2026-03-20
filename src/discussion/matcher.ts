@@ -1,11 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { Persona } from "../agents/types.js";
 
-let _client: Anthropic | null = null;
-function getClient(): Anthropic {
-  if (!_client) _client = new Anthropic();
-  return _client;
-}
+function getOllamaHost() { return process.env.OLLAMA_HOST?.trim(); }
+function getOllamaModel() { return process.env.OLLAMA_MODEL?.trim() || "qwen3:latest"; }
 
 const MAX_RETRIES = 2;
 const RETRY_DELAYS = [1000, 3000];
@@ -49,36 +45,45 @@ export async function matchNPCs(
 }
 
 async function extractTagsWithRetry(message: string): Promise<string[]> {
+  const ollamaHost = getOllamaHost();
+  if (!ollamaHost) throw new Error("OLLAMA_HOST not configured");
+
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const response = await getClient().messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 200,
-        messages: [
-          {
-            role: "user",
-            content: `Extract 3-5 Web3/blockchain-related keyword tags from the following message (lowercase English, comma-separated).
-Return only the tags, nothing else.
+      const url = `${ollamaHost}/v1/chat/completions`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: getOllamaModel(),
+          stream: false,
+          messages: [
+            {
+              role: "user",
+              content: `Extract 3-5 Web3/blockchain-related keyword tags from the following message (lowercase English, comma-separated).
+Return only the tags, nothing else. No explanation.
 
 Message: "${message}"`,
-          },
-        ],
+            },
+          ],
+        }),
       });
 
-      const block = response.content[0];
-      if (block.type !== "text") return [];
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Ollama error ${res.status}: ${text}`);
+      }
 
-      return block.text
+      const data = await res.json() as { choices: { message: { content: string } }[] };
+      const text = data.choices[0].message.content;
+
+      return text
         .toLowerCase()
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
     } catch (err: any) {
       const isLast = attempt === MAX_RETRIES - 1;
-      const status = err?.status ?? err?.error?.status;
-      const message = err?.message ?? "";
-      if (status && status >= 400 && status < 500 && status !== 429) throw err;
-      if (message.includes("authentication") || message.includes("apiKey") || message.includes("authToken")) throw err;
       if (isLast) throw err;
       const delay = RETRY_DELAYS[attempt];
       console.warn(`[matcher] attempt ${attempt + 1} failed: ${err.message ?? err}. Retrying in ${delay}ms...`);

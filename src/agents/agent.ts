@@ -1,10 +1,37 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Persona, AgentMessage, AgentContext, QuotedContent } from "./types.js";
+import { loadMemory, formatMemoryPrompt } from "./memory.js";
 
 let _client: Anthropic | null = null;
 function getClient(): Anthropic {
   if (!_client) _client = new Anthropic();
   return _client;
+}
+
+function getOllamaHost() { return process.env.OLLAMA_HOST?.trim(); }
+function getOllamaModel() { return process.env.OLLAMA_MODEL?.trim() || "qwen3:latest"; }
+
+export async function callOllama(system: string, user: string): Promise<string> {
+  const url = `${getOllamaHost()}/v1/chat/completions`;
+  console.log(`[ollama] POST ${url} model=${getOllamaModel()}`);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: getOllamaModel(),
+      stream: false,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Ollama error ${res.status}: ${text}`);
+  }
+  const data = await res.json() as { choices: { message: { content: string } }[] };
+  return data.choices[0].message.content;
 }
 
 const MAX_RETRIES = 3;
@@ -46,6 +73,10 @@ function buildSystemPrompt(persona: Persona): string {
     .map((e) => `Topic: ${e.topic}\n${persona.name}: ${e.response}`)
     .join("\n\n");
 
+  // Load evolving memory for this NPC
+  const memory = persona.type !== "user" ? loadMemory(persona.id) : null;
+  const memoryPrompt = memory ? formatMemoryPrompt(memory) : "";
+
   return `${persona.systemPrompt}
 
 ## Core Beliefs (conviction 0-1)
@@ -61,15 +92,24 @@ ${persona.speakingStyle.forbidden.map((f) => `- ${f}`).join("\n")}
 
 ## Example Responses
 ${examples}
-
+${memoryPrompt}
 ## Rules
 - ALWAYS respond in English
 - Stay in character at all times
-- Keep responses to 2-4 paragraphs
-- When replying to someone, use the quote format: > @AgentName: "quoted excerpt" followed by your response
-- You may quote multiple people in one reply using multiple > lines
+- Keep responses to 2-4 paragraphs — be substantive but concise
+- IMPORTANT: When referencing or replying to another agent, you MUST use the quote format on its own line: > @AgentName: "quoted excerpt"
+  Then write your response on the next line. Example:
+  > @Satoshi Nakamoto: "privacy is a fundamental right"
+  I agree with this position because...
+- You may quote multiple people using multiple > lines
 - Only quote the most relevant sentence or phrase, not entire paragraphs
-- Do not give investment advice or price predictions`;
+- NEVER just mention someone's name without quoting them — always use the > @Name: "quote" format
+- Do not give investment advice or price predictions
+- Engage directly with others' arguments — agree, disagree, or build upon them
+- Bring your unique perspective; do not repeat what others have already said
+- If in a DEBATE, argue your assigned side passionately but fairly
+- If in a HEARING, ask probing questions (as questioner) or defend thoroughly (as hot seat)
+- If in an ORACLE council, commit to specific predictions with reasoning`;
 }
 
 function buildUserPrompt(context: AgentContext): string {
@@ -132,18 +172,8 @@ export function parseQuotes(
 
 export async function generateResponse(context: AgentContext): Promise<string> {
   const label = `generateResponse(${context.persona.id})`;
-  return withRetry(async () => {
-    const response = await getClient().messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
-      system: buildSystemPrompt(context.persona),
-      messages: [{ role: "user", content: buildUserPrompt(context) }],
-    });
-
-    const block = response.content[0];
-    if (block.type === "text") {
-      return block.text;
-    }
-    throw new Error("Unexpected response type");
-  }, label);
+  const system = buildSystemPrompt(context.persona);
+  const user = buildUserPrompt(context);
+  console.log(`[agent] Calling Ollama (${getOllamaModel()} @ ${getOllamaHost()}) for ${context.persona.id}`);
+  return withRetry(() => callOllama(system, user), label);
 }
