@@ -644,6 +644,17 @@
     .message-card.debate-pro { border-left: 3px solid var(--green); }
     .message-card.debate-con { border-left: 3px solid var(--red); }
     .message-card.hearing-hotseat { border-left: 3px solid var(--orange); }
+    /* Thread view */
+    .view-toggle { display: flex; gap: 4px; margin-bottom: 12px; }
+    .view-toggle-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); padding: 6px 14px; border-radius: var(--radius-md); cursor: pointer; font-size: 13px; font-family: var(--font-mono); transition: all 0.15s; }
+    .view-toggle-btn.active { background: var(--cyan-glow); border-color: var(--cyan); color: var(--cyan); }
+    .view-toggle-btn:hover:not(.active) { border-color: var(--border-light); color: var(--text-primary); }
+    .thread-group { margin-left: 0; margin-bottom: 16px; border-left: 2px solid var(--border); padding-left: 0; }
+    .thread-group .message-card { border-radius: var(--radius-xl); }
+    .thread-reply { margin-left: 32px; position: relative; }
+    .thread-reply::before { content: ''; position: absolute; left: -17px; top: 20px; width: 14px; height: 2px; background: var(--border); }
+    .thread-reply .message-card { border-left: 2px solid var(--border-light); border-radius: var(--radius-md); }
+    @media (max-width: 768px) { .thread-reply { margin-left: 16px; } .thread-reply::before { left: -9px; width: 8px; } }
     .msg-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px 0; }
     .msg-avatar {
       width: 42px; height: 42px;
@@ -1627,14 +1638,15 @@
         currentDiscussionId = discussion.id;
         allDiscussions.unshift(discussion);
         document.getElementById('stat-discussions').textContent = allDiscussions.length;
+        // Connect SSE first — NPC messages will stream in one by one
         connectSSE(discussion.id);
         renderDiscussionHeader(discussion);
-        renderAllMessages(discussion.messages);
-        hideLoading();
-        if (discussion.status === 'open') {
-          document.getElementById('user-input-panel').classList.remove('hidden');
-          updateUserInputPanel();
+        // Render any messages already in the response (usually empty for new discussions)
+        if (discussion.messages.length > 0) {
+          renderAllMessages(discussion.messages);
         }
+        // Don't hide loading — SSE will show messages as they arrive
+        // Status will change to 'open' via SSE when all NPCs have spoken
       } catch (e) { alert('Error: ' + e.message); }
       document.getElementById('create-btn').disabled = false;
       document.getElementById('create-btn').textContent = 'Start Discussion';
@@ -1714,12 +1726,144 @@
       `;
     }
 
+    // ===== VIEW MODE =====
+    let viewMode = 'flat'; // 'flat' or 'thread'
+
+    function setViewMode(mode) {
+      viewMode = mode;
+      document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      if (allMessages.length > 0) {
+        if (mode === 'thread') renderThreadView(allMessages);
+        else renderFlatView(allMessages);
+      }
+    }
+
+    function renderViewToggle() {
+      const existing = document.querySelector('.view-toggle');
+      if (existing) return;
+      const container = document.getElementById('messages-container');
+      const toggle = document.createElement('div');
+      toggle.className = 'view-toggle';
+      toggle.innerHTML = `
+        <button class="view-toggle-btn ${viewMode === 'flat' ? 'active' : ''}" data-mode="flat" onclick="setViewMode('flat')">Flat</button>
+        <button class="view-toggle-btn ${viewMode === 'thread' ? 'active' : ''}" data-mode="thread" onclick="setViewMode('thread')">Threaded</button>
+      `;
+      container.parentNode.insertBefore(toggle, container);
+    }
+
     // ===== RENDER MESSAGES =====
     function renderAllMessages(messages) {
       const container = document.getElementById('messages-container');
       container.innerHTML = '';
       allMessages = [...messages];
+      renderViewToggle();
+      if (viewMode === 'thread') renderThreadView(messages);
+      else renderFlatView(messages);
+    }
+
+    function renderFlatView(messages) {
+      const container = document.getElementById('messages-container');
+      container.innerHTML = '';
       messages.forEach(msg => appendMessage(msg, false));
+    }
+
+    function renderThreadView(messages) {
+      const container = document.getElementById('messages-container');
+      container.innerHTML = '';
+      // Build thread tree: group messages by who they quote
+      const rootMsgs = [];
+      const replies = new Map(); // parentMsgId -> child messages
+      for (const msg of messages) {
+        const parentId = msg.replyTo || (msg.quotes?.length > 0 ? msg.quotes[0].messageId : null);
+        if (parentId && messages.find(m => m.id === parentId)) {
+          if (!replies.has(parentId)) replies.set(parentId, []);
+          replies.get(parentId).push(msg);
+        } else {
+          rootMsgs.push(msg);
+        }
+      }
+      // Render threads
+      for (const root of rootMsgs) {
+        const group = document.createElement('div');
+        group.className = 'thread-group';
+        appendMessageTo(root, group, false);
+        renderReplies(root.id, replies, group, 0);
+        container.appendChild(group);
+      }
+    }
+
+    function renderReplies(parentId, repliesMap, container, depth) {
+      const children = repliesMap.get(parentId);
+      if (!children || depth > 3) return;
+      for (const child of children) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'thread-reply';
+        appendMessageTo(child, wrapper, false);
+        container.appendChild(wrapper);
+        renderReplies(child.id, repliesMap, wrapper, depth + 1);
+      }
+    }
+
+    function appendMessageTo(msg, targetContainer, animate) {
+      // Same as appendMessage but targets a specific container
+      const isUser = msg.agentId?.startsWith('user-');
+      const npc = !isUser ? getNPC(msg.agentId) : null;
+      const avatar = AVATARS[msg.agentId] || '👤';
+      const time = new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const color = NPC_COLORS[msg.agentId] || 'var(--orange)';
+      const msgId = msg.id || ('msg-' + msg.timestamp);
+      const formatted = formatContent(msg.content);
+      let formatBadge = '';
+      const curDisc = allDiscussions.find(d => d.id === currentDiscussionId);
+      if (curDisc && curDisc.formatMeta) {
+        if (curDisc.format === 'debate') {
+          if (curDisc.formatMeta.proSide?.includes(msg.agentId)) formatBadge = '<span class="side-badge side-pro">PRO</span>';
+          else if (curDisc.formatMeta.conSide?.includes(msg.agentId)) formatBadge = '<span class="side-badge side-con">CON</span>';
+        } else if (curDisc.format === 'hearing' && curDisc.formatMeta.hotSeatNpc === msg.agentId) {
+          formatBadge = '<span class="side-badge side-hotseat">HOT SEAT</span>';
+        }
+      }
+      let quotesHtml = '';
+      if (msg.quotes && msg.quotes.length > 0) {
+        quotesHtml = `<div style="padding:6px 20px 0;">${msg.quotes.map(q=>`
+          <div class="msg-quote-block"><div class="quote-author">@${escapeHtml(q.agentName)}</div><div class="quote-text">"${escapeHtml(q.excerpt)}"</div></div>
+        `).join('')}</div>`;
+      }
+      const actionsHtml = `<div class="msg-actions">
+        <button class="msg-action-btn" onclick="setReply('${msgId}','${escapeAttr(msg.agentName)}')">↳ Reply</button>
+        <button class="msg-action-btn" onclick="quoteMessage('${msgId}')">❝ Quote</button>
+        <button class="msg-action-btn translate-btn" onclick="translateMessage('${msgId}',this)">🌐 Translate</button>
+      </div>`;
+      const div = document.createElement('div');
+      let sideClass = '';
+      if (curDisc?.format === 'debate' && curDisc.formatMeta) {
+        if (curDisc.formatMeta.proSide?.includes(msg.agentId)) sideClass = ' debate-pro';
+        else if (curDisc.formatMeta.conSide?.includes(msg.agentId)) sideClass = ' debate-con';
+      } else if (curDisc?.format === 'hearing' && curDisc.formatMeta?.hotSeatNpc === msg.agentId) {
+        sideClass = ' hearing-hotseat';
+      }
+      div.className = `message-card${isUser ? ' user-msg' : ''}${sideClass}`;
+      div.id = `msg-${msgId}`;
+      div.dataset.msgid = msgId;
+      if (!animate) div.style.animation = 'none';
+      div.innerHTML = `
+        <div class="msg-header">
+          <div class="msg-avatar" style="border-color:${color}" onclick="toggleAvatarPopover(event,'${msg.agentId}')">${avatar}</div>
+          <div class="msg-agent-info">
+            <div class="msg-agent-name">${escapeHtml(msg.agentName)}${formatBadge}</div>
+            <div class="msg-agent-meta">
+              ${npc ? `<span class="npc-type ${npc.type}">${npc.type}</span>` : '<span class="npc-type" style="background:rgba(255,140,66,0.15);color:var(--orange);border:1px solid rgba(255,140,66,0.3)">user</span>'}
+            </div>
+          </div>
+          <div class="msg-timestamp">${time}</div>
+        </div>
+        ${quotesHtml}
+        <div class="msg-body" id="msg-body-${msgId}">${formatted}</div>
+        <div class="msg-translate-area" id="msg-translate-${msgId}"></div>
+        ${actionsHtml}
+      `;
+      targetContainer.appendChild(div);
+      if (animate) div.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
 
     function appendMessage(msg, animate = true) {
@@ -1979,7 +2123,27 @@
       eventSource = new EventSource(`/api/discussions/${discussionId}/stream`);
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.type === 'archived') {
+        if (data.type === 'message') {
+          // NPC message arrived — append immediately
+          hideLoading();
+          appendMessage(data);
+          // Update message count in header
+          const countEl = document.querySelector('.disc-header-meta .meta-item');
+          if (countEl) countEl.textContent = allMessages.length + ' messages';
+          // Show loading for next NPC
+          showLoading('NPC Agents are discussing...');
+        } else if (data.type === 'status') {
+          // NPC round complete → discussion is now open
+          hideLoading();
+          updateStatusBadge(data.status);
+          if (data.status === 'open') {
+            document.getElementById('user-input-panel').classList.remove('hidden');
+            updateUserInputPanel();
+          }
+          // Update the discussion in allDiscussions
+          const disc = allDiscussions.find(d => d.id === discussionId);
+          if (disc) disc.status = data.status;
+        } else if (data.type === 'archived') {
           showSummary(data.summary);
           hideLoading();
           document.getElementById('user-input-panel').classList.add('hidden');

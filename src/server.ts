@@ -25,16 +25,21 @@ const userStore = new UserAgentStore(chainAdapter);
 const roundtable = new Roundtable({
   onMessage(msg, discussion) {
     console.log(`[${discussion.id.slice(0, 8)}] ${msg.agentName}: ${msg.content.slice(0, 80)}...`);
-    // Push to SSE clients
+    // Push to SSE clients — each NPC message appears immediately
     sseClients.get(discussion.id)?.forEach((res) => {
-      res.write(`data: ${JSON.stringify(msg)}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: "message", ...msg })}\n\n`);
     });
   },
   onArchive(discussion) {
     console.log(`[${discussion.id.slice(0, 8)}] Archived: ${discussion.topic}`);
-    // Notify SSE clients about archive
     sseClients.get(discussion.id)?.forEach((res) => {
       res.write(`data: ${JSON.stringify({ type: "archived", summary: discussion.summary })}\n\n`);
+    });
+  },
+  onStatusChange(discussion) {
+    // Notify frontend when NPC round completes → discussion is now "open"
+    sseClients.get(discussion.id)?.forEach((res) => {
+      res.write(`data: ${JSON.stringify({ type: "status", status: discussion.status })}\n\n`);
     });
   },
   enableCooldown: true,

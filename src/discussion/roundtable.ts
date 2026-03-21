@@ -15,6 +15,7 @@ const DATA_FILE = path.resolve(__dirname, "../../data/discussions.json");
 
 export type MessageCallback = (msg: AgentMessage, discussion: Discussion) => void;
 export type ArchiveCallback = (discussion: Discussion) => void;
+export type StatusChangeCallback = (discussion: Discussion) => void;
 
 const COOLDOWN_MS = 30 * 60 * 1000;
 const COOLDOWN_CHECK_INTERVAL_MS = 60 * 1000;
@@ -28,15 +29,18 @@ export class Roundtable {
   private discussions: Map<string, Discussion> = new Map();
   private onMessage?: MessageCallback;
   private onArchive?: ArchiveCallback;
+  private onStatusChange?: StatusChangeCallback;
   private cooldownTimer?: ReturnType<typeof setInterval>;
 
   constructor(opts?: {
     onMessage?: MessageCallback;
     onArchive?: ArchiveCallback;
+    onStatusChange?: StatusChangeCallback;
     enableCooldown?: boolean;
   }) {
     this.onMessage = opts?.onMessage;
     this.onArchive = opts?.onArchive;
+    this.onStatusChange = opts?.onStatusChange;
     this.loadFromDisk();
     if (opts?.enableCooldown !== false) {
       this.startCooldownChecker();
@@ -194,23 +198,48 @@ export class Roundtable {
     };
     this.discussions.set(discussion.id, discussion);
 
-    for (let round = 0; round < config.npcRounds; round++) {
-      for (const npc of shuffle(npcs)) {
-        await this.generateNpcMessage(npc, discussion);
-      }
-    }
+    // Generate NPC messages in background — each is pushed via SSE as it completes
+    this.generateNpcRoundsInBackground(discussion, npcs, config.npcRounds);
 
-    discussion.status = "open";
-    discussion.updatedAt = Date.now();
-    this.saveToDisk();
     return discussion;
+  }
+
+  /**
+   * Generate NPC messages in background. Each message is pushed to SSE as it completes.
+   * When all rounds finish, discussion status changes to "open" and an SSE event is sent.
+   */
+  private async generateNpcRoundsInBackground(
+    discussion: Discussion,
+    npcs: Persona[],
+    rounds: number,
+    messageSpecs?: { npc: Persona; topicOverride?: string }[],
+  ): Promise<void> {
+    const specs: { npc: Persona; topicOverride?: string }[] = messageSpecs ??
+      Array.from({ length: rounds }, () => shuffle(npcs).map((npc) => ({ npc }))).flat();
+
+    (async () => {
+      for (const spec of specs) {
+        await this.generateNpcMessage(spec.npc, discussion, spec.topicOverride);
+      }
+      discussion.status = "open";
+      discussion.updatedAt = Date.now();
+      this.saveToDisk();
+      // Notify SSE clients that NPC round is complete
+      this.onStatusChange?.(discussion);
+      console.log(`[roundtable] Discussion ${discussion.id.slice(0, 8)} NPC round complete, now open.`);
+    })().catch((err) => {
+      console.error(`[roundtable] Background generation failed: ${err.message ?? err}`);
+      discussion.status = "open";
+      discussion.updatedAt = Date.now();
+      this.saveToDisk();
+      this.onStatusChange?.(discussion);
+    });
   }
 
   // ---- Debate: two sides argue for/against ----
   private async startDebate(config: DiscussionConfig): Promise<Discussion> {
     const allNpcs = await this.selectNPCs(config);
 
-    // Assign sides: use config if provided, otherwise split randomly
     let proNpcs: Persona[];
     let conNpcs: Persona[];
     if (config.proNpcIds && config.conNpcIds) {
@@ -243,31 +272,25 @@ export class Roundtable {
     const proNames = proNpcs.map((n) => n.name).join(", ");
     const conNames = conNpcs.map((n) => n.name).join(", ");
 
-    // Structured debate rounds: PRO opening → CON opening → PRO rebuttal → CON rebuttal
+    // Build message specs for all rounds
+    const specs: { npc: Persona; topicOverride?: string }[] = [];
     for (let round = 0; round < config.npcRounds; round++) {
       const roundLabel = round === 0 ? "opening statement" : "rebuttal";
-
-      // Pro side
       for (const npc of shuffle(proNpcs)) {
-        await this.generateNpcMessage(
+        specs.push({
           npc,
-          discussion,
-          `DEBATE FORMAT — You are arguing FOR the proposition: "${config.topic}"\n${config.description}\n\nYour side (FOR): ${proNames}\nOpposing side (AGAINST): ${conNames}\nThis is your ${roundLabel}. Make your strongest case.`,
-        );
+          topicOverride: `DEBATE FORMAT — You are arguing FOR the proposition: "${config.topic}"\n${config.description}\n\nYour side (FOR): ${proNames}\nOpposing side (AGAINST): ${conNames}\nThis is your ${roundLabel}. Make your strongest case.`,
+        });
       }
-      // Con side
       for (const npc of shuffle(conNpcs)) {
-        await this.generateNpcMessage(
+        specs.push({
           npc,
-          discussion,
-          `DEBATE FORMAT — You are arguing AGAINST the proposition: "${config.topic}"\n${config.description}\n\nYour side (AGAINST): ${conNames}\nOpposing side (FOR): ${proNames}\nThis is your ${roundLabel}. Counter the arguments made.`,
-        );
+          topicOverride: `DEBATE FORMAT — You are arguing AGAINST the proposition: "${config.topic}"\n${config.description}\n\nYour side (AGAINST): ${conNames}\nOpposing side (FOR): ${proNames}\nThis is your ${roundLabel}. Counter the arguments made.`,
+        });
       }
     }
 
-    discussion.status = "open";
-    discussion.updatedAt = Date.now();
-    this.saveToDisk();
+    this.generateNpcRoundsInBackground(discussion, allNpcs, config.npcRounds, specs);
     return discussion;
   }
 
@@ -275,7 +298,6 @@ export class Roundtable {
   private async startHearing(config: DiscussionConfig): Promise<Discussion> {
     const allNpcs = await this.selectNPCs(config);
 
-    // Pick the hot seat NPC
     const hotSeatId = config.hotSeatNpcId || shuffle(allNpcs)[0].id;
     const hotSeatNpc = NPC_PERSONAS[hotSeatId];
     const questioners = allNpcs.filter((n) => n.id !== hotSeatId);
@@ -296,31 +318,24 @@ export class Roundtable {
     };
     this.discussions.set(discussion.id, discussion);
 
-    // Hot seat gives opening statement
-    await this.generateNpcMessage(
-      hotSeatNpc,
-      discussion,
-      `HEARING FORMAT — You are in the hot seat being questioned about: "${config.topic}"\n${config.description}\n\nGive your opening statement. The following agents will question you: ${questioners.map((n) => n.name).join(", ")}. Defend your position clearly.`,
-    );
-
-    // Each questioner asks, hot seat responds
+    // Build message specs: opening → Q&A rounds
+    const specs: { npc: Persona; topicOverride?: string }[] = [];
+    specs.push({
+      npc: hotSeatNpc,
+      topicOverride: `HEARING FORMAT — You are in the hot seat being questioned about: "${config.topic}"\n${config.description}\n\nGive your opening statement. The following agents will question you: ${questioners.map((n) => n.name).join(", ")}. Defend your position clearly.`,
+    });
     for (const questioner of shuffle(questioners)) {
-      await this.generateNpcMessage(
-        questioner,
-        discussion,
-        `HEARING FORMAT — You are questioning ${hotSeatNpc.name} about: "${config.topic}"\n${config.description}\n\nAsk a probing, challenging question based on what ${hotSeatNpc.name} has said. Be direct and push for specifics.`,
-      );
-      // Hot seat responds
-      await this.generateNpcMessage(
-        hotSeatNpc,
-        discussion,
-        `HEARING FORMAT — You are in the hot seat. ${questioner.name} just questioned you about: "${config.topic}"\n\nRespond to their question directly. Defend your position.`,
-      );
+      specs.push({
+        npc: questioner,
+        topicOverride: `HEARING FORMAT — You are questioning ${hotSeatNpc.name} about: "${config.topic}"\n${config.description}\n\nAsk a probing, challenging question based on what ${hotSeatNpc.name} has said. Be direct and push for specifics.`,
+      });
+      specs.push({
+        npc: hotSeatNpc,
+        topicOverride: `HEARING FORMAT — You are in the hot seat. ${questioner.name} just questioned you about: "${config.topic}"\n\nRespond to their question directly. Defend your position.`,
+      });
     }
 
-    discussion.status = "open";
-    discussion.updatedAt = Date.now();
-    this.saveToDisk();
+    this.generateNpcRoundsInBackground(discussion, allNpcs, 1, specs);
     return discussion;
   }
 
@@ -344,27 +359,22 @@ export class Roundtable {
     };
     this.discussions.set(discussion.id, discussion);
 
-    // Each NPC makes a prediction
+    // Build specs: prediction round + reaction round
+    const specs: { npc: Persona; topicOverride?: string }[] = [];
     for (const npc of shuffle(npcs)) {
-      await this.generateNpcMessage(
+      specs.push({
         npc,
-        discussion,
-        `ORACLE COUNCIL — Make your prediction about: "${config.topic}"\n${config.description}\n\nStructure your response as:\n1. Your prediction (be specific — include timeframe, outcome, and confidence level)\n2. Your reasoning (why you believe this, based on your domain expertise)\n3. Key risks that could invalidate your prediction\n\nBe bold. Oracles must commit to a position.`,
-      );
+        topicOverride: `ORACLE COUNCIL — Make your prediction about: "${config.topic}"\n${config.description}\n\nStructure your response as:\n1. Your prediction (be specific — include timeframe, outcome, and confidence level)\n2. Your reasoning (why you believe this, based on your domain expertise)\n3. Key risks that could invalidate your prediction\n\nBe bold. Oracles must commit to a position.`,
+      });
+    }
+    for (const npc of shuffle(npcs)) {
+      specs.push({
+        npc,
+        topicOverride: `ORACLE COUNCIL — Review the other predictions about: "${config.topic}"\n\nChallenge or support the predictions you find most interesting. Which oracle do you agree/disagree with most, and why? What are they missing?`,
+      });
     }
 
-    // Second round: NPCs react to each other's predictions
-    for (const npc of shuffle(npcs)) {
-      await this.generateNpcMessage(
-        npc,
-        discussion,
-        `ORACLE COUNCIL — Review the other predictions about: "${config.topic}"\n\nChallenge or support the predictions you find most interesting. Which oracle do you agree/disagree with most, and why? What are they missing?`,
-      );
-    }
-
-    discussion.status = "open";
-    discussion.updatedAt = Date.now();
-    this.saveToDisk();
+    this.generateNpcRoundsInBackground(discussion, npcs, 1, specs);
     return discussion;
   }
 
