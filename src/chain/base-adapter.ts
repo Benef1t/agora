@@ -96,28 +96,41 @@ export class BaseChainAdapter implements ChainAdapter {
 
   /**
    * Deploy an EIP-4337 smart contract wallet for the given owner.
-   * Uses SimpleAccountFactory if configured, otherwise returns a
-   * deterministic counterfactual address.
+   * Uses SimpleAccountFactory.createAccount() if configured,
+   * otherwise returns a deterministic counterfactual address.
    */
   async deployAgentWallet(ownerAddress: string): Promise<string> {
     if (this.accountFactoryAddr && this.walletClient) {
       try {
-        const factory = getContract({
+        const salt = BigInt(ownerAddress);
+
+        // First get the counterfactual address
+        const walletAddr = await this.publicClient.readContract({
           address: this.accountFactoryAddr as `0x${string}`,
           abi: SIMPLE_ACCOUNT_FACTORY_ABI,
-          client: {
-            public: this.publicClient,
-            wallet: this.walletClient,
-          },
+          functionName: "getAddress",
+          args: [ownerAddress as `0x${string}`, salt],
         });
 
-        // Use owner address as salt for determinism
-        const salt = BigInt(ownerAddress);
-        const walletAddr = await factory.read.getAddress([
-          ownerAddress as `0x${string}`,
-          salt,
-        ]);
-        console.log(`[Chain] Deployed EIP-4337 wallet ${walletAddr} for ${ownerAddress}`);
+        // Check if already deployed
+        const code = await this.publicClient.getCode({ address: walletAddr as `0x${string}` });
+        if (code && code !== "0x") {
+          console.log(`[Chain] EIP-4337 wallet already deployed at ${walletAddr} for ${ownerAddress}`);
+          return walletAddr as string;
+        }
+
+        // Deploy via createAccount
+        const txHash = await this.walletClient.writeContract({
+          chain: this.chain,
+          account: this.walletClient.account!,
+          address: this.accountFactoryAddr as `0x${string}`,
+          abi: SIMPLE_ACCOUNT_FACTORY_ABI,
+          functionName: "createAccount",
+          args: [ownerAddress as `0x${string}`, salt],
+        });
+
+        const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+        console.log(`[Chain] Deployed EIP-4337 wallet ${walletAddr} for ${ownerAddress} (tx=${txHash}, gas=${receipt.gasUsed})`);
         return walletAddr as string;
       } catch (err: any) {
         console.error(`[Chain] Wallet deployment failed: ${err.message}`);

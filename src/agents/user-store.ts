@@ -1,9 +1,14 @@
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { resolve, dirname } from "path";
 import type { Persona, UserAgent } from "./types.js";
 import type { ChainAdapter } from "../chain/adapter.js";
 
+const DATA_FILE = resolve(process.cwd(), "data/agents.json");
+
 /**
- * In-memory store for registered user agents.
+ * Persistent store for registered user agents.
  * Each user is keyed by their lowercase EOA wallet address.
+ * Data is persisted to data/agents.json.
  */
 export class UserAgentStore {
   private agents: Map<string, UserAgent> = new Map();
@@ -11,6 +16,31 @@ export class UserAgentStore {
 
   constructor(chainAdapter: ChainAdapter) {
     this.chainAdapter = chainAdapter;
+    this.load();
+  }
+
+  private load(): void {
+    try {
+      if (existsSync(DATA_FILE)) {
+        const data = JSON.parse(readFileSync(DATA_FILE, "utf-8")) as UserAgent[];
+        for (const agent of data) {
+          this.agents.set(agent.walletAddress.toLowerCase(), agent);
+        }
+        console.log(`[UserStore] Loaded ${this.agents.size} agents from disk`);
+      }
+    } catch (err: any) {
+      console.warn(`[UserStore] Failed to load agents: ${err.message}`);
+    }
+  }
+
+  private save(): void {
+    try {
+      const dir = dirname(DATA_FILE);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      writeFileSync(DATA_FILE, JSON.stringify(Array.from(this.agents.values()), null, 2));
+    } catch (err: any) {
+      console.error(`[UserStore] Failed to save agents: ${err.message}`);
+    }
   }
 
   /**
@@ -25,8 +55,8 @@ export class UserAgentStore {
     // Deploy EIP-4337 smart contract wallet
     const smartWalletAddress = await this.chainAdapter.deployAgentWallet(walletAddress);
 
-    // Mint Bronze certification NFT
-    const nftTokenId = await this.chainAdapter.mintAgentNFT(smartWalletAddress, "bronze");
+    // Mint Bronze certification NFT to user's EOA (smart wallets may not support ERC-1155 receiver)
+    const nftTokenId = await this.chainAdapter.mintAgentNFT(walletAddress, "bronze");
 
     const agent: UserAgent = {
       walletAddress: key,
@@ -39,6 +69,7 @@ export class UserAgentStore {
     };
 
     this.agents.set(key, agent);
+    this.save();
     console.log(`[UserStore] Registered agent "${persona.name}" for wallet ${key.slice(0, 10)}...`);
     return agent;
   }
@@ -56,6 +87,9 @@ export class UserAgentStore {
    */
   touch(address: string): void {
     const agent = this.agents.get(address.toLowerCase());
-    if (agent) agent.lastActiveAt = Date.now();
+    if (agent) {
+      agent.lastActiveAt = Date.now();
+      this.save();
+    }
   }
 }

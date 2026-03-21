@@ -4,3 +4,4 @@ dist/
 .claude/
 data/discussions.json
 data/memories/
+data/agents.json
