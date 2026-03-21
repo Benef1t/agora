@@ -2,6 +2,8 @@ import type { Persona } from "../agents/types.js";
 
 function getOllamaHost() { return process.env.OLLAMA_HOST?.trim(); }
 function getOllamaModel() { return process.env.OLLAMA_MODEL?.trim() || "qwen3:latest"; }
+function getFallbackHost() { return process.env.OLLAMA_FALLBACK_HOST?.trim(); }
+function getFallbackModel() { return process.env.OLLAMA_FALLBACK_MODEL?.trim(); }
 
 const MAX_RETRIES = 2;
 const RETRY_DELAYS = [1000, 3000];
@@ -44,47 +46,63 @@ export async function matchNPCs(
   return scored.slice(0, count).map((s) => s.npc);
 }
 
+async function callMatcherOllama(host: string, model: string, message: string): Promise<string[]> {
+  const url = `${host}/v1/chat/completions`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      stream: false,
+      max_tokens: 512,
+      messages: [
+        {
+          role: "user",
+          content: `Extract 3-5 Web3/blockchain-related keyword tags from the following message (lowercase English, comma-separated).
+Return only the tags, nothing else. No explanation.
+
+Message: "${message}"`,
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Ollama error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json() as { choices: { message: { content: string } }[] };
+  const text = data.choices[0].message.content;
+
+  return text
+    .toLowerCase()
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 async function extractTagsWithRetry(message: string): Promise<string[]> {
   const ollamaHost = getOllamaHost();
   if (!ollamaHost) throw new Error("OLLAMA_HOST not configured");
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const url = `${ollamaHost}/v1/chat/completions`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: getOllamaModel(),
-          stream: false,
-          messages: [
-            {
-              role: "user",
-              content: `Extract 3-5 Web3/blockchain-related keyword tags from the following message (lowercase English, comma-separated).
-Return only the tags, nothing else. No explanation.
-
-Message: "${message}"`,
-            },
-          ],
-        }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Ollama error ${res.status}: ${text}`);
-      }
-
-      const data = await res.json() as { choices: { message: { content: string } }[] };
-      const text = data.choices[0].message.content;
-
-      return text
-        .toLowerCase()
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
+      const tags = await callMatcherOllama(ollamaHost, getOllamaModel(), message);
+      if (tags.length > 0) return tags;
+      throw new Error("Empty tags from primary model");
     } catch (err: any) {
       const isLast = attempt === MAX_RETRIES - 1;
-      if (isLast) throw err;
+      if (isLast) {
+        // Try fallback before giving up
+        const fbHost = getFallbackHost();
+        const fbModel = getFallbackModel();
+        if (fbHost && fbModel) {
+          console.warn(`[matcher] Primary failed, trying fallback ${fbModel}@${fbHost}`);
+          return callMatcherOllama(fbHost, fbModel, message);
+        }
+        throw err;
+      }
       const delay = RETRY_DELAYS[attempt];
       console.warn(`[matcher] attempt ${attempt + 1} failed: ${err.message ?? err}. Retrying in ${delay}ms...`);
       await new Promise((r) => setTimeout(r, delay));

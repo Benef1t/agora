@@ -10,16 +10,21 @@ function getClient(): Anthropic {
 
 function getOllamaHost() { return process.env.OLLAMA_HOST?.trim(); }
 function getOllamaModel() { return process.env.OLLAMA_MODEL?.trim() || "qwen3:latest"; }
+function getFallbackHost() { return process.env.OLLAMA_FALLBACK_HOST?.trim(); }
+function getFallbackModel() { return process.env.OLLAMA_FALLBACK_MODEL?.trim(); }
 
-export async function callOllama(system: string, user: string): Promise<string> {
-  const url = `${getOllamaHost()}/v1/chat/completions`;
-  console.log(`[ollama] POST ${url} model=${getOllamaModel()}`);
+async function ollamaRequest(
+  host: string, model: string, system: string, user: string,
+): Promise<string> {
+  const url = `${host}/v1/chat/completions`;
+  console.log(`[ollama] POST ${url} model=${model}`);
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: getOllamaModel(),
+      model,
       stream: false,
+      max_tokens: 8192,
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
@@ -30,8 +35,28 @@ export async function callOllama(system: string, user: string): Promise<string> 
     const text = await res.text();
     throw new Error(`Ollama error ${res.status}: ${text}`);
   }
-  const data = await res.json() as { choices: { message: { content: string } }[] };
-  return data.choices[0].message.content;
+  const data = await res.json() as { choices: { message: { content: string; reasoning?: string } }[] };
+  const msg = data.choices[0].message;
+  // Some models (e.g. minimax-m2.7) put output in content, reasoning in a separate field
+  return msg.content || "";
+}
+
+export async function callOllama(system: string, user: string): Promise<string> {
+  const host = getOllamaHost();
+  const model = getOllamaModel();
+  if (!host) throw new Error("OLLAMA_HOST not configured");
+
+  try {
+    const result = await ollamaRequest(host, model, system, user);
+    if (result) return result;
+    throw new Error("Empty content from primary model");
+  } catch (err: any) {
+    const fbHost = getFallbackHost();
+    const fbModel = getFallbackModel();
+    if (!fbHost || !fbModel) throw err;
+    console.warn(`[ollama] Primary (${model}) failed: ${err.message}. Falling back to ${fbModel}@${fbHost}`);
+    return ollamaRequest(fbHost, fbModel, system, user);
+  }
 }
 
 const MAX_RETRIES = 3;
