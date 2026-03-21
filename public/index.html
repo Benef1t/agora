@@ -1070,7 +1070,7 @@
               </div>
             </div>
             <div class="sidebar-tag-row">
-              <span class="sidebar-chip">Claude API</span>
+              <span class="sidebar-chip">Ollama</span>
               <span class="sidebar-chip">Base Chain</span>
               <span class="sidebar-chip">EIP-4337</span>
             </div>
@@ -1291,7 +1291,17 @@
     }
     function toggleMobileSidebar() {
       const sidebar = document.querySelector('.sidebar');
-      if (sidebar) sidebar.classList.toggle('sidebar-open');
+      if (!sidebar) return;
+      if (sidebar.classList.contains('sidebar-open')) {
+        // Close: move back to page-container
+        sidebar.classList.remove('sidebar-open');
+        const container = document.querySelector('.page-container');
+        if (container) container.appendChild(sidebar);
+      } else {
+        // Open: move to body so it's not hidden by parent
+        document.body.appendChild(sidebar);
+        sidebar.classList.add('sidebar-open');
+      }
     }
 
     // ===== WALLET =====
